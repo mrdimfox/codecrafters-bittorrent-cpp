@@ -72,6 +72,8 @@
         "typeinfo": "cpp",
         "valarray": "cpp",
         "variant": "cpp",
-        "filesystem": "cpp"
-    }
+        "filesystem": "cpp",
+        "version": "cpp"
+    },
+    "clang-format.executable": "clang-format-17"
 }

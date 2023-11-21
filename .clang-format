@@ -52,7 +52,7 @@ Cpp11BracedListStyle: "true"
 FixNamespaceComments: "true"
 
 # Align parameters on the open bracket
-AlignAfterOpenBracket: Align
+AlignAfterOpenBracket: BlockIndent
 
 # Configure each individual brace in BraceWrapping
 BreakBeforeBraces: "Custom"
