@@ -73,10 +73,12 @@
         "valarray": "cpp",
         "variant": "cpp",
         "filesystem": "cpp",
-        "version": "cpp"
+        "version": "cpp",
+        "cassert": "cpp"
     },
     "clang-format.executable": "clang-format-17",
     "cSpell.words": [
         "bencoded"
-    ]
+    ],
+    "cmake.useCMakePresets": "always"
 }

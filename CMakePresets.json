@@ -1,0 +1,52 @@
+{
+    "version": 2,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 20,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "with_tests",
+            "displayName": "Build With Tests",
+            "description": "Build With Tests",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "ENABLE_TESTS": {
+                    "type": "BOOL",
+                    "value": "TRUE"
+                }
+            }
+        },
+        {
+            "name": "default",
+            "displayName": "Build Without Tests",
+            "description": "Build Without Tests",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "ENABLE_TESTS": {
+                    "type": "BOOL",
+                    "value": "FALSE"
+                }
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "with_tests",
+            "description": "",
+            "displayName": "",
+            "configurePreset": "with_tests"
+        },
+        {
+            "name": "default",
+            "description": "",
+            "displayName": "",
+            "configurePreset": "default"
+        }
+    ]
+}
