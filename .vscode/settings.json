@@ -75,5 +75,8 @@
         "filesystem": "cpp",
         "version": "cpp"
     },
-    "clang-format.executable": "clang-format-17"
+    "clang-format.executable": "clang-format-17",
+    "cSpell.words": [
+        "bencoded"
+    ]
 }

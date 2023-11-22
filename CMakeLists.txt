@@ -17,3 +17,4 @@ target_include_directories(nlohmann_json INTERFACE src/lib/nlohmann/include)
 # Target
 target_compile_features(bittorrent PRIVATE cxx_std_20)
 target_link_libraries(bittorrent PRIVATE nlohmann_json fmt::fmt)
+target_include_directories(bittorrent PRIVATE src)
