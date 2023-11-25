@@ -51,7 +51,7 @@ int main(int argc, char* argv[])
             return 1;
         }
     }
-    else if (command == "info") {
+    else if (command == "info" or command == "dump") {
         if (argc < 3) {
             fmt::println(stderr, "Usage: {} info <torrent_file_path>", argv[0]);
             return 1;
@@ -82,6 +82,22 @@ int main(int argc, char* argv[])
           "Tracker URL: {}\nLength: {}",  //
           announce, length
         );
+
+        if (command == "dump") {
+            auto meta_dump =
+              metainfo->dump(4, 32, false, Json::error_handler_t::replace);
+
+            if (meta_dump.length() > 1500) {
+                fmt::println(
+                  "[DEBUG] Torrent file meta:\n{}\n<...SKIPPED..>\n{}",
+                  meta_dump.substr(0, 1000),
+                  meta_dump.substr(meta_dump.length() - 500, meta_dump.length())
+                );
+            }
+            else {
+                fmt::println("[DEBUG] Torrent file meta:\n{}", meta_dump);
+            }
+        }
     }
     else {
         fmt::print(stderr, "Unknown command: ");
