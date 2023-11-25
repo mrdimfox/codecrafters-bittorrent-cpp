@@ -4,11 +4,13 @@
 #include <optional>
 #include <string_view>
 
-namespace decoding {
+#include "bencode/types.hpp"
 
-inline auto to_integer(std::string_view s) -> std::optional<long long int>
+namespace bencode {
+
+inline auto to_integer(std::string_view s) -> std::optional<Integer>
 {
-    long long int value{};
+    Integer value{};
     auto result = std::from_chars(s.data(), s.data() + s.size(), value);
 
     if (result.ec != std::errc{} or result.ptr != s.end()) {
@@ -18,4 +20,4 @@ inline auto to_integer(std::string_view s) -> std::optional<long long int>
     return value;
 };
 
-}  // namespace decoding
+}  // namespace bencode

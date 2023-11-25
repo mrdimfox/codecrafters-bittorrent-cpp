@@ -3,9 +3,9 @@
 #include <optional>
 #include <string_view>
 
-#include "decoding/types.hpp"
+#include "bencode/types.hpp"
 
-namespace decoding {
+namespace bencode {
 
 auto decode_bencoded_value(std::string_view encoded_value)
   -> std::optional<DecodedValue>;
@@ -34,4 +34,4 @@ auto decode_bencoded_dict(std::string_view) -> std::optional<DecodedValue>;
 
 }  // namespace internal
 
-}  // namespace decoding
+}  // namespace bencode

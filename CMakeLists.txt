@@ -10,11 +10,13 @@ add_executable(
     bittorrent
     src/main.cpp
     src/tests.cpp
-    "src/decoding/decoders.cpp"
-    "src/decoding/decoders.hpp"
-    "src/decoding/types.hpp"
-    "src/decoding/tools.hpp"
-    "src/decoding/consts.hpp"
+    "src/torrent.cpp"
+    "src/torrent.hpp"
+    "src/bencode/decoders.cpp"
+    "src/bencode/decoders.hpp"
+    "src/bencode/types.hpp"
+    "src/bencode/tools.hpp"
+    "src/bencode/consts.hpp"
 )
 
 # Libs

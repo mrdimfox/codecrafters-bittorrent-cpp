@@ -9,11 +9,11 @@
 #include <fmt/core.h>
 #include <nlohmann/json.hpp>
 
-#include "decoding/decoders.hpp"
-#include "decoding/types.hpp"
+#include "bencode/decoders.hpp"
+#include "bencode/types.hpp"
 
-using namespace decoding;
-using namespace decoding::internal;
+using namespace bencode;
+using namespace bencode::internal;
 
 
 void tests()

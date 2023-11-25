@@ -5,13 +5,16 @@
 
 #include <fmt/core.h>
 
-#include "decoding/consts.hpp"
-#include "decoding/decoders.hpp"
-#include "decoding/tools.hpp"
-#include "decoding/types.hpp"
+#include "bencode/consts.hpp"
+#include "bencode/decoders.hpp"
+#include "bencode/tools.hpp"
+#include "bencode/types.hpp"
 
 
-namespace decoding {
+using Json = nlohmann::json;
+
+
+namespace bencode {
 
 /**
  * @brief Try to decode source string and return nullopt if failed
@@ -313,4 +316,4 @@ auto decode_bencoded_dict(std::string_view encoded_dict)
 
 }  // namespace internal
 
-}  // namespace decoding
+}  // namespace bencode

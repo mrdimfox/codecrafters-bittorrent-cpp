@@ -8,7 +8,7 @@
 
 #include <nlohmann/json.hpp>
 
-namespace decoding {
+namespace bencode {
 
 using Json = nlohmann::json;
 
@@ -30,4 +30,6 @@ struct EncodedValue
 using Dict = std::map<std::string, Json>;
 using DecodedValue = std::tuple<EncodedValue, Json>;
 
-}  // namespace decoding
+using Integer = long long;
+
+}  // namespace bencode
