@@ -20,7 +20,6 @@ target_link_libraries(bittorrent PRIVATE nlohmann_json fmt::fmt)
 target_include_directories(bittorrent PRIVATE src)
 
 
-message(STATUS "Tests enabled: ${ENABLE_TESTS}")
 if(ENABLE_TESTS)
     message(STATUS "Tests are enabled")
     target_compile_definitions(bittorrent PRIVATE ENABLE_TESTS)

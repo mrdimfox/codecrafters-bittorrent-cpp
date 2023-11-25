@@ -3,6 +3,7 @@
 #include <charconv>
 #include <cstdlib>
 #include <optional>
+#include <ranges>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -33,22 +34,22 @@ const char LIST_START_SYMBOL = 'l';
 const char INTEGER_START_SYMBOL = 'i';
 const char STRING_DELIMITER_SYMBOL = ':';
 
-auto decode_bencoded_value(const std::string& encoded_value)
+auto decode_bencoded_value(std::string_view encoded_value)
   -> std::optional<std::tuple<EncodedValue, json>>;
 
-auto extract_integer(std::string_view encoded_value)
+auto extract_bencoded_integer(std::string_view encoded_value)
   -> std::optional<std::string_view>;
-json decode_integer(const std::string&);
+json decode_integer(std::string_view encoded_integer);
 
-auto extract_string(std::string_view encoded_value)
+auto extract_bencoded_string(std::string_view encoded_value)
   -> std::optional<std::string_view>;
-json decode_string(const std::string&);
+json decode_string(std::string_view encoded_string);
 
 auto is_encoded_list(std::string_view) -> bool;
 auto decode_bencoded_list(std::string_view)
   -> std::optional<std::tuple<EncodedValue, json>>;
 
-auto extract_bencoded_value(const std::string&) -> EncodedValue;
+auto extract_bencoded_value(std::string_view) -> EncodedValue;
 
 auto to_integer(std::string_view) -> std::optional<long long int>;
 
@@ -95,31 +96,21 @@ int main(int argc, char* argv[])
 
 
 /**
- * @brief Try to decode source string and raise if it fails
+ * @brief Try to decode source string and return nullopt if failed
  *
  * Returns pair of encoded value and result of decoding
- *
- * @param encoded_value
- * @return std::tuple<EncodedValue, json>
  */
-auto decode_bencoded_value(const std::string& encoded_value)
+auto decode_bencoded_value(std::string_view encoded_value)
   -> std::optional<std::tuple<EncodedValue, json>>
 {
     auto bencoded_value = extract_bencoded_value(encoded_value);
 
     switch (bencoded_value.type) {
         case EncodedValueType::String:
-            // TODO: Fix std::string
-            return {
-              {bencoded_value, decode_string(std::string{bencoded_value.value})}
-            };
+            return {{bencoded_value, decode_string(bencoded_value.value)}};
 
         case EncodedValueType::Integer:
-            // TODO: Fix std::string
-            return {
-              {bencoded_value, decode_integer(std::string{bencoded_value.value})
-              }
-            };
+            return {{bencoded_value, decode_integer(bencoded_value.value)}};
 
         case EncodedValueType::List:
             return decode_bencoded_list(bencoded_value.value);
@@ -135,13 +126,13 @@ auto decode_bencoded_value(const std::string& encoded_value)
  *
  * For lists right bound can not be determined.
  */
-auto extract_bencoded_value(const std::string& encoded_value) -> EncodedValue
+auto extract_bencoded_value(std::string_view encoded_value) -> EncodedValue
 {
-    if (auto value = extract_integer(encoded_value); value) {
+    if (auto value = extract_bencoded_integer(encoded_value); value) {
         return EncodedValue{.type = EncodedValueType::Integer, .value = *value};
     }
 
-    if (auto value = extract_string(encoded_value); value) {
+    if (auto value = extract_bencoded_string(encoded_value); value) {
         return EncodedValue{.type = EncodedValueType::String, .value = *value};
     }
 
@@ -157,7 +148,7 @@ auto extract_bencoded_value(const std::string& encoded_value) -> EncodedValue
 /**
  * @brief Extract encoded string value or return nullopt
  */
-auto extract_string(std::string_view encoded_value)
+auto extract_bencoded_string(std::string_view encoded_value)
   -> std::optional<std::string_view>
 {
     // String starts with a digit
@@ -194,24 +185,34 @@ auto extract_string(std::string_view encoded_value)
  * @param encoded_string_value
  * @return json
  */
-json decode_string(const std::string& encoded_string)
+json decode_string(std::string_view encoded_string)
 {
     size_t delimiter_index = encoded_string.find(STRING_DELIMITER_SYMBOL);
-    if (delimiter_index != std::string::npos) {
-        std::string number_string = encoded_string.substr(0, delimiter_index);
-        int64_t number = std::atoll(number_string.c_str());
-        std::string str = encoded_string.substr(delimiter_index + 1, number);
-        return json(str);
+
+    if (delimiter_index == std::string::npos) {
+        throw std::runtime_error(
+          fmt::format("Invalid encoded value: {}", encoded_string)
+        );
     }
-    else {
-        throw std::runtime_error("Invalid encoded value: " + encoded_string);
+
+    auto number_string = encoded_string.substr(0, delimiter_index);
+
+    auto number = to_integer(number_string);
+    if (not number) {
+        throw std::runtime_error(
+          fmt::format("Invalid encoded value: {}", encoded_string)
+        );
     }
+
+    auto decoded_str = encoded_string.substr(delimiter_index + 1, *number);
+
+    return json(decoded_str);
 }
 
 /**
  * @brief Extract encoded integer value or return nullopt
  */
-auto extract_integer(std::string_view encoded_value)
+auto extract_bencoded_integer(std::string_view encoded_value)
   -> std::optional<std::string_view>
 {
     if (not encoded_value.starts_with(INTEGER_START_SYMBOL)) {
@@ -230,30 +231,23 @@ auto extract_integer(std::string_view encoded_value)
  * @brief Decode bencoded integer to json object
  *
  * "i-123e" -> -123
- *
- * @return json
  */
-json decode_integer(const std::string& encoded_integer)
+json decode_integer(std::string_view encoded_integer)
 {
-    std::string_view encoded_integer_view{encoded_integer};
-    encoded_integer_view.remove_prefix(1);
-    encoded_integer_view.remove_suffix(1);
+    auto original_encoded_int = encoded_integer;
 
-    auto to_integer = [&](std::string_view s) -> long long int {
-        long long int value{};
-        auto result = std::from_chars(s.data(), s.data() + s.size(), value);
+    encoded_integer.remove_prefix(1);
+    encoded_integer.remove_suffix(1);
 
-        if (result.ec != std::errc{} or result.ptr != encoded_integer_view.end()) {
-            throw std::runtime_error(
-              "Decoding error. Suggested value type: integer. Found: " +
-              encoded_integer
-            );
-        }
+    auto decoded_int = to_integer(encoded_integer);
+    if (not decoded_int) {
+        throw std::runtime_error(fmt::format(
+          "Decoding error. Suggested value type: integer. Found: {}",
+          original_encoded_int
+        ));
+    }
 
-        return value;
-    };
-
-    return json(to_integer(encoded_integer_view));
+    return json(*decoded_int);
 }
 
 
@@ -281,32 +275,32 @@ auto decode_bencoded_list(std::string_view encoded_list)
 {
     std::string_view remaining_encoded_list{encoded_list};
     remaining_encoded_list.remove_prefix(1);  // rm "l" suffix
-    std::size_t encoded_list_len = 1;         // 1 is "l" suffix length
 
     std::vector<json> list;
 
     // TODO: Fix while true
     while (true) {
-        auto decoded =
-          decode_bencoded_value(std::string(remaining_encoded_list));
+        auto decoded = decode_bencoded_value(remaining_encoded_list);
 
         if (decoded) {
             auto [encoded, result] = *decoded;
             list.push_back(result);
 
             remaining_encoded_list.remove_prefix(encoded.value.length());
-            encoded_list_len += encoded.value.length();
         }
         else {
-            if (remaining_encoded_list[0] == END_SYMBOL) {
-                encoded_list_len += 1;
-                break;
+            if (remaining_encoded_list.starts_with(END_SYMBOL)) {
+                remaining_encoded_list.remove_prefix(1);
+                break;  // entire list processed
             }
             else {
-                return std::nullopt;
+                return std::nullopt;  // malformed list
             }
         }
     }
+
+    auto encoded_list_len =
+      encoded_list.length() - remaining_encoded_list.length();
 
     std::string_view encoded_original_list{
       encoded_list.begin(), encoded_list_len
@@ -339,58 +333,59 @@ void tests()
 {
     // extract_string
     {
-        auto res = extract_string("3:test");
+        auto res = extract_bencoded_string("3:test");
         assert(res != std::nullopt);
         assert(*res == std::string_view("3:tes"));
     }
 
     {
-        auto res = extract_string("4:test");
+        auto res = extract_bencoded_string("4:test");
         assert(res != std::nullopt);
         assert(*res == std::string_view("4:test"));
     }
 
     {
-        auto res = extract_string("10:test");
+        auto res = extract_bencoded_string("10:test");
         assert(res == std::nullopt);
     }
 
     {
-        auto res = extract_string("10test");
+        auto res = extract_bencoded_string("10test");
         assert(res == std::nullopt);
     }
 
     {
         std::string_view encoded_string{"4:test1:a"};
-        auto res = extract_string(encoded_string);
+        auto res = extract_bencoded_string(encoded_string);
         assert(res != std::nullopt);
         assert(*res == std::string_view("4:test"));
 
-        auto res2 =
-          extract_string(std::string_view(res->end(), encoded_string.end()));
+        auto res2 = extract_bencoded_string(
+          std::string_view(res->end(), encoded_string.end())
+        );
         assert(res2 != std::nullopt);
         assert(*res2 == std::string_view("1:a"));
     }
 
     // extract_integer
     {
-        auto res = extract_integer("i123e");
+        auto res = extract_bencoded_integer("i123e");
         assert(res != std::nullopt);
         assert(*res == std::string_view("i123e"));
     }
 
     {
-        auto res = extract_integer("i123ee");
+        auto res = extract_bencoded_integer("i123ee");
         assert(res != std::nullopt);
         assert(*res == std::string_view("i123e"));
     }
 
     {
-        auto res = extract_integer("i123");
+        auto res = extract_bencoded_integer("i123");
         assert(res == std::nullopt);
     }
 
-    // extract value
+    // extract_bencoded_value
     {
         auto res = extract_bencoded_value("i123e");
         assert(res.type == EncodedValueType::Integer);
@@ -414,7 +409,47 @@ void tests()
         assert(res.type == EncodedValueType::Unknown);
     }
 
-    // decode list
+    // decode_string
+    {
+        try {
+            auto res = decode_string("3:abc");
+            assert(res == json("abc"));
+        } catch (const std::exception& e) {
+            assert(false && "No errors expected");
+        }
+    }
+
+    {
+        try {
+            auto res = decode_string("3+abc");
+            assert(false && "Test should raise");
+        } catch (const std::exception& e) {
+            auto msg = std::string_view(e.what());
+            assert(msg.find("3+abc") != std::string_view::npos);
+        }
+    }
+
+    // decode_integer
+    {
+        try {
+            auto res = decode_integer("i-123e");
+            assert(res == json(-123));
+        } catch (const std::exception& e) {
+            assert(false && "No errors expected");
+        }
+    }
+
+    {
+        try {
+            auto res = decode_integer("iasde");
+            assert(false && "Test should raise");
+        } catch (const std::exception& e) {
+            auto msg = std::string_view(e.what());
+            assert(msg.find("iasde") != std::string_view::npos);
+        }
+    }
+
+    // decode_bencoded_list
     {
         auto res = decode_bencoded_list("l2:abe");
         assert(res != std::nullopt);
