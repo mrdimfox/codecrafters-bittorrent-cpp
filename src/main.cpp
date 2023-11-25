@@ -2,6 +2,7 @@
 #include <cctype>
 #include <charconv>
 #include <cstdlib>
+#include <map>
 #include <optional>
 #include <ranges>
 #include <string>
@@ -13,13 +14,15 @@
 #include <nlohmann/json.hpp>
 
 
-using json = nlohmann::json;
+using Json = nlohmann::json;
+using namespace nlohmann::json_literals;
 
 enum class EncodedValueType
 {
     Integer,
     String,
     List,
+    Dictionary,
     Unknown,
 };
 
@@ -29,32 +32,39 @@ struct EncodedValue
     std::string_view value;
 };
 
+using Dict = std::map<std::string, Json>;
+using DecodedValue = std::tuple<EncodedValue, Json>;
+
 const char END_SYMBOL = 'e';
 const char LIST_START_SYMBOL = 'l';
+const char DICT_START_SYMBOL = 'd';
 const char INTEGER_START_SYMBOL = 'i';
 const char STRING_DELIMITER_SYMBOL = ':';
 
 auto decode_bencoded_value(std::string_view encoded_value)
-  -> std::optional<std::tuple<EncodedValue, json>>;
+  -> std::optional<DecodedValue>;
 
 auto extract_bencoded_integer(std::string_view encoded_value)
   -> std::optional<std::string_view>;
-json decode_integer(std::string_view encoded_integer);
+Json decode_integer(std::string_view encoded_integer);
 
 auto extract_bencoded_string(std::string_view encoded_value)
   -> std::optional<std::string_view>;
-json decode_string(std::string_view encoded_string);
+Json decode_string(std::string_view encoded_string);
 
-auto is_encoded_list(std::string_view) -> bool;
-auto decode_bencoded_list(std::string_view)
-  -> std::optional<std::tuple<EncodedValue, json>>;
+auto is_encoded_list_ahead(std::string_view) -> bool;
+auto decode_bencoded_list(std::string_view) -> std::optional<DecodedValue>;
+
+auto is_encoded_dict_ahead(std::string_view) -> bool;
+auto decode_bencoded_dict(std::string_view) -> std::optional<DecodedValue>;
 
 auto extract_bencoded_value(std::string_view) -> EncodedValue;
 
 auto to_integer(std::string_view) -> std::optional<long long int>;
 
+#ifdef ENABLE_TESTS
 void tests();
-
+#endif
 
 int main(int argc, char* argv[])
 {
@@ -101,7 +111,7 @@ int main(int argc, char* argv[])
  * Returns pair of encoded value and result of decoding
  */
 auto decode_bencoded_value(std::string_view encoded_value)
-  -> std::optional<std::tuple<EncodedValue, json>>
+  -> std::optional<DecodedValue>
 {
     auto bencoded_value = extract_bencoded_value(encoded_value);
 
@@ -115,6 +125,9 @@ auto decode_bencoded_value(std::string_view encoded_value)
         case EncodedValueType::List:
             return decode_bencoded_list(bencoded_value.value);
 
+        case EncodedValueType::Dictionary:
+            return decode_bencoded_dict(bencoded_value.value);
+
         default:
             return std::nullopt;
             break;
@@ -124,7 +137,7 @@ auto decode_bencoded_value(std::string_view encoded_value)
 /**
  * @brief Infer value type and return bounded encoded value string
  *
- * For lists right bound can not be determined.
+ * For lists and dicts right bound can not be determined.
  */
 auto extract_bencoded_value(std::string_view encoded_value) -> EncodedValue
 {
@@ -136,9 +149,15 @@ auto extract_bencoded_value(std::string_view encoded_value) -> EncodedValue
         return EncodedValue{.type = EncodedValueType::String, .value = *value};
     }
 
-    if (is_encoded_list(encoded_value)) {
+    if (is_encoded_list_ahead(encoded_value)) {
         return EncodedValue{
           .type = EncodedValueType::List, .value = encoded_value
+        };
+    }
+
+    if (is_encoded_dict_ahead(encoded_value)) {
+        return EncodedValue{
+          .type = EncodedValueType::Dictionary, .value = encoded_value
         };
     }
 
@@ -181,11 +200,8 @@ auto extract_bencoded_string(std::string_view encoded_value)
  * @brief Decode bencoded string to json object
  *
  * "5:hello" -> "hello"
- *
- * @param encoded_string_value
- * @return json
  */
-json decode_string(std::string_view encoded_string)
+Json decode_string(std::string_view encoded_string)
 {
     size_t delimiter_index = encoded_string.find(STRING_DELIMITER_SYMBOL);
 
@@ -206,7 +222,7 @@ json decode_string(std::string_view encoded_string)
 
     auto decoded_str = encoded_string.substr(delimiter_index + 1, *number);
 
-    return json(decoded_str);
+    return Json(decoded_str);
 }
 
 /**
@@ -232,7 +248,7 @@ auto extract_bencoded_integer(std::string_view encoded_value)
  *
  * "i-123e" -> -123
  */
-json decode_integer(std::string_view encoded_integer)
+Json decode_integer(std::string_view encoded_integer)
 {
     auto original_encoded_int = encoded_integer;
 
@@ -247,20 +263,16 @@ json decode_integer(std::string_view encoded_integer)
         ));
     }
 
-    return json(*decoded_int);
+    return Json(*decoded_int);
 }
 
 
 /**
  * @brief Detect if list ahead
  */
-auto is_encoded_list(std::string_view encoded_value) -> bool
+auto is_encoded_list_ahead(std::string_view encoded_value) -> bool
 {
-    if (not encoded_value.starts_with(LIST_START_SYMBOL)) {
-        return false;
-    }
-
-    return true;
+    return encoded_value.starts_with(LIST_START_SYMBOL);
 }
 
 
@@ -271,12 +283,12 @@ auto is_encoded_list(std::string_view encoded_value) -> bool
  * "l5:helloi52ee" -> ["hello", 52]
  */
 auto decode_bencoded_list(std::string_view encoded_list)
-  -> std::optional<std::tuple<EncodedValue, json>>
+  -> std::optional<DecodedValue>
 {
     std::string_view remaining_encoded_list{encoded_list};
     remaining_encoded_list.remove_prefix(1);  // rm "l" suffix
 
-    std::vector<json> list;
+    std::vector<Json> list;
 
     // TODO: Fix while true
     while (true) {
@@ -311,7 +323,76 @@ auto decode_bencoded_list(std::string_view encoded_list)
          .type = EncodedValueType::List,
          .value = encoded_original_list,
        },
-       json(list)}
+       Json(list)}
+    };
+}
+
+
+/**
+ * @brief Detect if dict ahead
+ */
+auto is_encoded_dict_ahead(std::string_view encoded_value) -> bool
+{
+    return encoded_value.starts_with(DICT_START_SYMBOL);
+}
+
+
+/**
+ * @brief Decode bencoded dict of bencoded values to pair of source string and
+ *        decoded json
+ *
+ * "d3:foo3:bar5:helloi52ee" -> {"hello": 52, "foo":"bar"}
+ */
+auto decode_bencoded_dict(std::string_view encoded_dict)
+  -> std::optional<DecodedValue>
+{
+    std::string_view remaining_encoded_dict{encoded_dict};
+    remaining_encoded_dict.remove_prefix(1);  // rm "d" suffix
+
+    Dict dict;
+
+    while (true) {
+        // Decode key (always string)
+        auto encoded_key = extract_bencoded_string(remaining_encoded_dict);
+        if (not encoded_key) {
+            return std::nullopt;
+        }
+
+        std::string key = decode_string(*encoded_key);
+        remaining_encoded_dict.remove_prefix(encoded_key->length());
+
+        // Decode value
+        auto decoded_value = decode_bencoded_value(remaining_encoded_dict);
+        if (not decoded_value) {
+            return std::nullopt;
+        }
+
+        auto [encoded_value, value] = *decoded_value;
+        remaining_encoded_dict.remove_prefix(encoded_value.value.length());
+
+        // Insert into the dict
+        dict.insert({key, value});
+
+        // Check for dict end
+        if (remaining_encoded_dict.starts_with(END_SYMBOL)) {
+            remaining_encoded_dict.remove_prefix(1);
+            break;  // entire dict processed
+        }
+    }
+
+    auto encoded_dict_len =
+      encoded_dict.length() - remaining_encoded_dict.length();
+
+    std::string_view encoded_original_dict{
+      encoded_dict.begin(), encoded_dict_len
+    };
+
+    return {
+      {EncodedValue{
+         .type = EncodedValueType::Dictionary,
+         .value = encoded_original_dict,
+       },
+       Json(dict)}
     };
 }
 
@@ -413,7 +494,7 @@ void tests()
     {
         try {
             auto res = decode_string("3:abc");
-            assert(res == json("abc"));
+            assert(res == Json("abc"));
         } catch (const std::exception& e) {
             assert(false && "No errors expected");
         }
@@ -433,7 +514,7 @@ void tests()
     {
         try {
             auto res = decode_integer("i-123e");
-            assert(res == json(-123));
+            assert(res == Json(-123));
         } catch (const std::exception& e) {
             assert(false && "No errors expected");
         }
@@ -457,7 +538,7 @@ void tests()
         auto [src, result] = *res;
         assert(src.value == std::string_view("l2:abe"));
 
-        auto expected_result = json(std::vector{json("ab")});
+        auto expected_result = Json(std::vector{Json("ab")});
         assert(result.dump() == expected_result.dump());
     }
 
@@ -469,13 +550,45 @@ void tests()
         assert(src.value == std::string_view("li123el2:abee"));
 
         auto expected_result =
-          json(std::vector{json(123), json(std::vector{json("ab")})});
+          Json(std::vector{Json(123), Json(std::vector{Json("ab")})});
 
         assert(result.dump() == expected_result.dump());
     }
 
     {
         auto res = decode_bencoded_list("l2:aasdasdbe");
+        assert(res == std::nullopt);
+    }
+
+    // decode_bencoded_dict
+    {
+        auto res = decode_bencoded_dict("d3:foo3:bar5:helloi52ee");
+        assert(res != std::nullopt);
+
+        auto [src, result] = *res;
+        assert(src.value == std::string_view("d3:foo3:bar5:helloi52ee"));
+
+        auto expected_result = R"({"hello": 52, "foo":"bar"})"_json;
+        assert(result.dump() == expected_result.dump());
+    }
+
+    {  // test dict is sorted by key
+        auto res = decode_bencoded_dict("d1:b3:foo1:a3:bare");
+        assert(res != std::nullopt);
+
+        auto [src, result] = *res;
+
+        auto expected_result = R"({"a": "bar", "b":"foo"})"_json;
+        assert(result.dump() == expected_result.dump());
+    }
+
+    {
+        auto res = decode_bencoded_dict("d3:fooee");
+        assert(res == std::nullopt);
+    }
+
+    {
+        auto res = decode_bencoded_dict("d3:foo2bare");
         assert(res == std::nullopt);
     }
 
