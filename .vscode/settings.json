@@ -74,11 +74,14 @@
         "variant": "cpp",
         "filesystem": "cpp",
         "version": "cpp",
-        "cassert": "cpp"
+        "cassert": "cpp",
+        "charconv": "cpp"
     },
     "clang-format.executable": "clang-format-17",
     "cSpell.words": [
         "bencoded"
     ],
-    "cmake.useCMakePresets": "always"
+    "cmake.useCMakePresets": "always",
+    "iwyu.compile_commands": "${workspaceFolder}/build/compile_commands.json",
+    "iwyu.diagnostics.full_line_squiggles": true,
 }

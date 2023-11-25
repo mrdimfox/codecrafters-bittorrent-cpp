@@ -6,7 +6,16 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 project(bittorrent-starter-cpp)
 
 # Executable
-add_executable(bittorrent src/main.cpp)
+add_executable(
+    bittorrent
+    src/main.cpp
+    src/tests.cpp
+    "src/decoding/decoders.cpp"
+    "src/decoding/decoders.hpp"
+    "src/decoding/types.hpp"
+    "src/decoding/tools.hpp"
+    "src/decoding/consts.hpp"
+)
 
 # Libs
 add_subdirectory(src/lib/fmt-10.1.1)
@@ -18,7 +27,6 @@ target_include_directories(nlohmann_json INTERFACE src/lib/nlohmann/include)
 target_compile_features(bittorrent PRIVATE cxx_std_20)
 target_link_libraries(bittorrent PRIVATE nlohmann_json fmt::fmt)
 target_include_directories(bittorrent PRIVATE src)
-
 
 if(ENABLE_TESTS)
     message(STATUS "Tests are enabled")
