@@ -207,8 +207,7 @@ auto decode_bencoded_list(std::string_view encoded_list)
 
     std::vector<Json> list;
 
-    // TODO: Fix while true
-    while (true) {
+    while (not remaining_encoded_list.starts_with(END_SYMBOL)) {
         auto decoded = decode_bencoded_value(remaining_encoded_list);
 
         if (decoded) {
@@ -218,15 +217,11 @@ auto decode_bencoded_list(std::string_view encoded_list)
             remaining_encoded_list.remove_prefix(encoded.value.length());
         }
         else {
-            if (remaining_encoded_list.starts_with(END_SYMBOL)) {
-                remaining_encoded_list.remove_prefix(1);
-                break;  // entire list processed
-            }
-            else {
-                return std::nullopt;  // malformed list
-            }
+            return std::nullopt;  // malformed list
         }
     }
+
+    remaining_encoded_list.remove_prefix(1);  // rm list end symbol
 
     auto encoded_list_len =
       encoded_list.length() - remaining_encoded_list.length();
@@ -268,7 +263,7 @@ auto decode_bencoded_dict(std::string_view encoded_dict)
 
     Dict dict;
 
-    while (true) {
+    while (not remaining_encoded_dict.starts_with(END_SYMBOL)) {
         // Decode key (always string)
         auto encoded_key = extract_bencoded_string(remaining_encoded_dict);
         if (not encoded_key) {
@@ -289,13 +284,9 @@ auto decode_bencoded_dict(std::string_view encoded_dict)
 
         // Insert into the dict
         dict.insert({key, value});
-
-        // Check for dict end
-        if (remaining_encoded_dict.starts_with(END_SYMBOL)) {
-            remaining_encoded_dict.remove_prefix(1);
-            break;  // entire dict processed
-        }
     }
+
+    remaining_encoded_dict.remove_prefix(1);  // remove dict end symbol
 
     auto encoded_dict_len =
       encoded_dict.length() - remaining_encoded_dict.length();
