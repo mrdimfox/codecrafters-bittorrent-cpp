@@ -66,7 +66,7 @@ int main(int argc, char* argv[])
             return 1;
         }
 
-        auto metainfo = torrent::metainfo(torrent_file_path);
+        auto metainfo = torrent::Metainfo::from_file(torrent_file_path);
         if (not metainfo) {
             fmt::println(
               stderr, "Error while file decoding: {}", torrent_file_path.c_str()
@@ -74,18 +74,13 @@ int main(int argc, char* argv[])
             return 1;
         }
 
-        std::string announce = metainfo->value("announce", "unknown");
-        auto length =
-          metainfo->value("info", Json()).value<bencode::Integer>("length", 0);
-
         fmt::println(
-          "Tracker URL: {}\nLength: {}",  //
-          announce, length
+          "Tracker URL: {}\nLength: {}", metainfo->announce, metainfo->length
         );
 
         if (command == "dump") {
             auto meta_dump =
-              metainfo->dump(4, 32, false, Json::error_handler_t::replace);
+              metainfo->raw.dump(4, 32, false, Json::error_handler_t::replace);
 
             if (meta_dump.length() > 1500) {
                 fmt::println(

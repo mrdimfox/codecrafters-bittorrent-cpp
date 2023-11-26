@@ -17,6 +17,35 @@
 
 namespace torrent {
 
+auto Metainfo::from_file(std::filesystem::path file_path, bool strict)
+  -> std::optional<Metainfo>
+{
+    auto metainfo_json = metainfo(file_path);
+    if (not metainfo_json) {
+        return std::nullopt;
+    }
+
+    if (strict) {
+        bool is_full_meta =
+          metainfo_json->contains("announce") and
+          metainfo_json->contains("info") and
+          metainfo_json->value("info", bencode::Json()).contains("length");
+
+        if (not is_full_meta) {
+            return std::nullopt;
+        }
+    }
+
+    std::string announce = metainfo_json->value("announce", "unknown");
+
+    auto length = metainfo_json->value("info", bencode::Json())
+                    .value<bencode::Integer>("length", 0);
+
+    return Metainfo{
+      .raw = *metainfo_json, .announce = announce, .length = length
+    };
+}
+
 auto metainfo(std::filesystem::path file_path) -> std::optional<nlohmann::json>
 {
     auto torrent_content = [&]() {
