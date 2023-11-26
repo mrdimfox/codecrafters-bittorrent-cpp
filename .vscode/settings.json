@@ -75,11 +75,15 @@
         "filesystem": "cpp",
         "version": "cpp",
         "cassert": "cpp",
-        "charconv": "cpp"
+        "charconv": "cpp",
+        "typeindex": "cpp",
+        "complex": "cpp"
     },
     "clang-format.executable": "clang-format-17",
     "cSpell.words": [
-        "bencoded"
+        "bencode",
+        "bencoded",
+        "Metainfo"
     ],
     "cmake.useCMakePresets": "always",
     "iwyu.compile_commands": "${workspaceFolder}/build/compile_commands.json",

@@ -14,6 +14,8 @@ add_executable(
     "src/torrent.hpp"
     "src/bencode/decoders.cpp"
     "src/bencode/decoders.hpp"
+    "src/bencode/encoders.hpp"
+    "src/bencode/encoders.cpp"
     "src/bencode/types.hpp"
     "src/bencode/tools.hpp"
     "src/bencode/consts.hpp"

@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdint>
 #include <filesystem>
 
 #include <nlohmann/json.hpp>
@@ -18,7 +17,8 @@ struct Metainfo
     static auto from_file(std::filesystem::path, bool strict = true)
       -> std::optional<Metainfo>;
 
-    auto hash() -> std::uint64_t;
+    auto hash() const -> std::string;
+    auto pieces() const -> bencode::Json::binary_t;
 };
 
 auto metainfo(std::filesystem::path) -> std::optional<nlohmann::json>;

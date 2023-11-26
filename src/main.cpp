@@ -5,6 +5,7 @@
 #include <string>
 
 #include <fmt/core.h>
+#include <fmt/ranges.h>
 #include <nlohmann/json.hpp>
 
 #include "bencode/decoders.hpp"
@@ -75,7 +76,8 @@ int main(int argc, char* argv[])
         }
 
         fmt::println(
-          "Tracker URL: {}\nLength: {}", metainfo->announce, metainfo->length
+          "Tracker URL: {}\nLength: {}\nInfo Hash: {}", metainfo->announce,
+          metainfo->length, metainfo->hash()
         );
 
         if (command == "dump") {

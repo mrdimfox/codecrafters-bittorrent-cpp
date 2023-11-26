@@ -10,14 +10,26 @@
 #include <nlohmann/json.hpp>
 
 #include "bencode/decoders.hpp"
+#include "bencode/encoders.hpp"
 #include "bencode/types.hpp"
 
 using namespace bencode;
 using namespace bencode::internal;
 using namespace std::string_view_literals;
 
+void test_decoding();
+void test_encoding();
 
 void tests()
+{
+    test_decoding();
+    test_encoding();
+
+    fmt::println("[DEBUG] All tests passed\n");
+}
+
+
+void test_decoding()
 {
     // decode_string
     {
@@ -128,6 +140,41 @@ void tests()
         auto res = decode_bencoded_dict("d3:foo2bare");
         assert(res == std::nullopt);
     }
+}
 
-    fmt::println("[DEBUG] All tests passed\n");
+
+void test_encoding()
+{
+    // encode_integer
+    {
+        assert(encode_integer(Json(123)) == "i123e");
+        assert(encode_integer(Json(-123)) == "i-123e");
+    }
+
+    // encode_string
+    {
+        assert(encode_string(Json("123")) == "3:123");
+        assert(encode_string(Json("asdasdasd")) == "9:asdasdasd");
+    }
+
+    // encode_string
+    {
+        assert(encode_binary(Json::binary({1, 2, 3})) == "3:\1\2\3");
+    }
+
+    // encode_dict
+    {
+        auto encoded_dict = encode_dict(R"({"foo":"bar","buz":2})"_json);
+
+        assert(encoded_dict != std::nullopt);
+        assert(*encoded_dict == "d3:buzi2e3:foo3:bare");
+    }
+
+    // encode_dict
+    {
+        auto encoded_dict = encode_list(R"([1, 2, 3])"_json);
+
+        assert(encoded_dict != std::nullopt);
+        assert(*encoded_dict == "li1ei2ei3ee");
+    }
 }

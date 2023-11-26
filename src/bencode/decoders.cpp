@@ -79,7 +79,11 @@ auto is_encoded_string_ahead(std::string_view encoded_value) -> bool
  * @brief Decode bencoded string to a pair of encoded value and decoded json
  *  object
  *
+ * If string cannot be fully decoded as UTF-8 sequence (ascii only) it will be
+ * decoded as Json::binary.
+ *
  * "5:hello" -> "hello"
+ * "3:\1\2\3" -> b"\1\2\3"
  */
 auto decode_string(std::string_view encoded_string)
   -> std::optional<DecodedValue>
@@ -104,16 +108,38 @@ auto decode_string(std::string_view encoded_string)
 
     auto decoded_str = encoded_string.substr(delimiter_index + 1, *len);
 
-    return {
-      {EncodedValue{
-         .type = EncodedValueType::String,
-         .value = std::string_view(
-           encoded_string.begin(),
-           std::next(encoded_string.begin(), last_symbol_pos)
-         )
-       },
-       Json(decoded_str)}
-    };
+    Json decoded_json_string(decoded_str);
+
+    // TODO: Remove this hack
+    // Try to convert json to string. If it doesn't work, decoded value is
+    // probably just an array of bytes.
+    try {
+        decoded_json_string.dump(-1, ' ', /*ensure_ascii=*/true);
+
+        return {
+          {EncodedValue{
+             .type = EncodedValueType::String,
+             .value = std::string_view(
+               encoded_string.begin(),
+               std::next(encoded_string.begin(), last_symbol_pos)
+             )
+           },
+           Json(decoded_str)}
+        };
+    } catch (const Json::type_error&) {
+        return {
+          {EncodedValue{
+             .type = EncodedValueType::String,
+             .value = std::string_view(
+               encoded_string.begin(),
+               std::next(encoded_string.begin(), last_symbol_pos)
+             )
+           },
+           Json::binary(
+             std::vector<std::uint8_t>(decoded_str.begin(), decoded_str.end())
+           )}
+        };
+    }
 }
 
 
