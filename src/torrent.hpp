@@ -13,6 +13,7 @@ struct Metainfo
     const nlohmann::json raw;
     const std::string announce;
     const bencode::Integer length;
+    const bencode::Integer piece_length;
 
     static auto from_file(std::filesystem::path, bool strict = true)
       -> std::optional<Metainfo>;

@@ -27,11 +27,13 @@ auto Metainfo::from_file(std::filesystem::path file_path, bool strict)
         return std::nullopt;
     }
 
+    auto info = metainfo_json->value("info", bencode::Json());
+
     if (strict) {
-        bool is_full_meta =
-          metainfo_json->contains("announce") and
-          metainfo_json->contains("info") and
-          metainfo_json->value("info", bencode::Json()).contains("length");
+        bool is_full_meta = metainfo_json->contains("announce") and
+                            metainfo_json->contains("info") and
+                            info.contains("length") and
+                            info.contains("piece length");
 
         if (not is_full_meta) {
             return std::nullopt;
@@ -40,11 +42,14 @@ auto Metainfo::from_file(std::filesystem::path file_path, bool strict)
 
     std::string announce = metainfo_json->value("announce", "unknown");
 
-    auto length = metainfo_json->value("info", bencode::Json())
-                    .value<bencode::Integer>("length", 0);
+    auto length = info.value<bencode::Integer>("length", 0);
+    auto piece_length = info.value<bencode::Integer>("piece length", 0);
 
     return Metainfo{
-      .raw = *metainfo_json, .announce = announce, .length = length
+      .raw = *metainfo_json,
+      .announce = announce,
+      .length = length,
+      .piece_length = piece_length
     };
 }
 

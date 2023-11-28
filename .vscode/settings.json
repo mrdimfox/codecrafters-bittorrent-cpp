@@ -77,7 +77,8 @@
         "cassert": "cpp",
         "charconv": "cpp",
         "typeindex": "cpp",
-        "complex": "cpp"
+        "complex": "cpp",
+        "span": "cpp"
     },
     "clang-format.executable": "clang-format-17",
     "cSpell.words": [
