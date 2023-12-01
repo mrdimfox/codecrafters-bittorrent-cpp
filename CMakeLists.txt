@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.13)
 
 # Enable compile commands for IntelliSense support
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_CXX_STANDARD 20)
 
 project(bittorrent-starter-cpp)
 
@@ -24,12 +25,22 @@ add_executable(
 # Libs
 add_subdirectory(src/lib/fmt-10.1.1)
 
+add_subdirectory(src/lib/range-v3)
+
 add_library(nlohmann_json INTERFACE)
 target_include_directories(nlohmann_json INTERFACE src/lib/nlohmann/include)
 
+find_package(CURL REQUIRED)
+
 # Target
 target_compile_features(bittorrent PRIVATE cxx_std_20)
-target_link_libraries(bittorrent PRIVATE nlohmann_json fmt::fmt)
+target_link_libraries(
+    bittorrent
+    PRIVATE nlohmann_json
+            fmt::fmt
+            CURL::libcurl
+            range-v3
+)
 target_include_directories(bittorrent PRIVATE src)
 
 if(ENABLE_TESTS)

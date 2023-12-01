@@ -38,9 +38,9 @@ enum ExitCode
     Fail = EXIT_FAILURE,
 };
 
-ExitCode decode_command(std::string encoded_value);
-ExitCode info_command(fs::path torrent_file_path);
-ExitCode dump_command(fs::path torrent_file_path);
+auto decode_command(std::string encoded_value) -> ExitCode;
+auto info_command(fs::path torrent_file_path) -> ExitCode;
+auto dump_command(fs::path torrent_file_path) -> ExitCode;
 
 int main(int argc, char* argv[])
 {
@@ -87,7 +87,7 @@ auto decode_command(std::string encoded_value) -> ExitCode
     return ExitCode::Success;
 }
 
-ExitCode info_command(fs::path torrent_file_path)
+auto info_command(fs::path torrent_file_path) -> ExitCode
 {
     EXPECTED(
       fs::exists(torrent_file_path), "File not found: \"{}\"",
@@ -127,7 +127,7 @@ ExitCode info_command(fs::path torrent_file_path)
     return ExitCode::Success;
 }
 
-ExitCode dump_command(fs::path torrent_file_path)
+auto dump_command(fs::path torrent_file_path) -> ExitCode
 {
     EXPECTED(
       fs::exists(torrent_file_path), "File not found: \"{}\"",
