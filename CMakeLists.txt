@@ -27,6 +27,8 @@ add_subdirectory(src/lib/fmt-10.1.1)
 
 add_subdirectory(src/lib/range-v3)
 
+add_subdirectory(src/lib/magic_enum)
+
 add_library(nlohmann_json INTERFACE)
 target_include_directories(nlohmann_json INTERFACE src/lib/nlohmann/include)
 
@@ -40,6 +42,7 @@ target_link_libraries(
             fmt::fmt
             CURL::libcurl
             range-v3
+            magic_enum::magic_enum
 )
 target_include_directories(bittorrent PRIVATE src)
 
