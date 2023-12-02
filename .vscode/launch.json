@@ -9,7 +9,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/bittorrent",
-            "args": ["dump", "sample.torrent"],
+            "args": ["peers", "sample.torrent"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
@@ -27,6 +27,15 @@
                     "ignoreFailures": true
                 }
             ],
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "(lldb) Launch",
+            "program": "${workspaceFolder}/build/bittorrent",
+            "args": ["peers", "sample.torrent"],
+            "cwd": "${workspaceFolder}",
+            "stopOnEntry": false
         }
     ]
 }

@@ -1,9 +1,8 @@
 #include <cstdio>  // for stderr
 #include <cstdlib>
 #include <filesystem>
-#include <fstream>
-#include <iostream>
 #include <span>
+#include <stdexcept>
 #include <string>
 
 #include <fmt/core.h>
@@ -12,7 +11,7 @@
 
 #include "bencode/consts.hpp"
 #include "bencode/decoders.hpp"
-#include "bencode/types.hpp"
+#include "client.hpp"
 #include "torrent.hpp"
 
 using Json = nlohmann::json;
@@ -41,6 +40,7 @@ enum ExitCode
 auto decode_command(std::string encoded_value) -> ExitCode;
 auto info_command(fs::path torrent_file_path) -> ExitCode;
 auto dump_command(fs::path torrent_file_path) -> ExitCode;
+auto peers_command(fs::path torrent_file_path) -> ExitCode;
 
 int main(int argc, char* argv[])
 {
@@ -56,19 +56,29 @@ int main(int argc, char* argv[])
 
     std::string command = argv[1];
 
-    if (command == "decode") {
-        EXPECTED(argc == 3, "Usage: {} info <encoded_value>", argv[0]);
-        return decode_command(argv[2]);
-    }
+    try {
+        if (command == "decode") {
+            EXPECTED(argc == 3, "Usage: {} info <encoded_value>", argv[0]);
+            return decode_command(argv[2]);
+        }
 
-    if (command == "info") {
-        EXPECTED(argc == 3, "Usage: {} info <torrent_file_path>", argv[0]);
-        return info_command(argv[2]);
-    }
+        if (command == "info") {
+            EXPECTED(argc == 3, "Usage: {} info <torrent_file_path>", argv[0]);
+            return info_command(argv[2]);
+        }
 
-    if (command == "dump") {
-        EXPECTED(argc == 3, "Usage: {} dump <torrent_file_path>", argv[0]);
-        return dump_command(argv[2]);
+        if (command == "dump") {
+            EXPECTED(argc == 3, "Usage: {} dump <torrent_file_path>", argv[0]);
+            return dump_command(argv[2]);
+        }
+
+        if (command == "peers") {
+            EXPECTED(argc == 3, "Usage: {} peers <torrent_file_path>", argv[0]);
+            return peers_command(argv[2]);
+        }
+    } catch (std::runtime_error e) {
+        fmt::println(stderr, "[ERROR] {}", e.what());
+        return ExitCode::Fail;
     }
 
     fmt::print(stderr, R"(Unknown command: "{0}")", command);
@@ -153,6 +163,25 @@ auto dump_command(fs::path torrent_file_path) -> ExitCode
     else {
         fmt::println("[DEBUG] Torrent file meta:\n{}", meta_dump);
     }
+
+    return ExitCode::Success;
+}
+
+auto peers_command(fs::path torrent_file_path) -> ExitCode
+{
+    EXPECTED(
+      fs::exists(torrent_file_path), "File not found: \"{}\"",
+      torrent_file_path.c_str()
+    );
+
+    auto metainfo = torrent::Metainfo::from_file(torrent_file_path);
+    EXPECTED(
+      metainfo.has_value(), "Error while file decoding: {}",
+      torrent_file_path.c_str()
+    );
+
+    auto peers = torrent::client::get_peers(*metainfo);
+    fmt::println("{}", fmt::join(peers, "\n"));
 
     return ExitCode::Success;
 }

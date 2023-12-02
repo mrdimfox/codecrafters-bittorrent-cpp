@@ -13,6 +13,8 @@ add_executable(
     src/tests.cpp
     "src/torrent.cpp"
     "src/torrent.hpp"
+    "src/client.hpp"
+    "src/client.cpp"
     "src/bencode/decoders.cpp"
     "src/bencode/decoders.hpp"
     "src/bencode/encoders.hpp"
@@ -20,6 +22,8 @@ add_executable(
     "src/bencode/types.hpp"
     "src/bencode/tools.hpp"
     "src/bencode/consts.hpp"
+    "src/misc/curl.cpp"
+    "src/misc/curl.hpp"
 )
 
 # Libs
