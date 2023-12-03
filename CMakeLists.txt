@@ -22,6 +22,8 @@ add_executable(
     "src/bencode/types.hpp"
     "src/bencode/tools.hpp"
     "src/bencode/consts.hpp"
+    "src/peers/peers.cpp"
+    "src/peers/peers.hpp"
     "src/misc/curl.cpp"
     "src/misc/curl.hpp"
 )

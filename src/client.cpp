@@ -2,11 +2,12 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <curl/curl.h>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <vector>
 
+#include <curl/curl.h>
 #include <fmt/core.h>
 #include <fmt/ranges.h>
 #include <magic_enum.hpp>
@@ -18,16 +19,20 @@
 #include "bencode/decoders.hpp"
 #include "bencode/types.hpp"
 #include "misc/curl.hpp"
+#include "misc/sha1.hpp"
 #include "misc/url.hpp"
+#include "peers/peers.hpp"
+#include "torrent.hpp"
 
 namespace torrent::client {
 
 constexpr const std::size_t PEERS_CHUNK_SIZE_BYTES = 6;
 
 int hex_str_to_int(std::string hex_str);
-auto sha1_hash_to_bytes(std::string_view hash) -> std::vector<uint8_t>;
 auto decode_peers(bencode::Json::binary_t& peers) -> std::vector<std::string>;
 auto decode_ip_port_binary(std::span<std::uint8_t> bytes) -> std::string;
+auto pack_peer_handshake_msg(const Metainfo& meta) -> std::vector<uint8_t>;
+auto unpack_peer_handshake_msg(curl::Curl::Buffer) -> std::string;
 
 auto get_peers(const Metainfo& meta) -> std::vector<std::string>
 {
@@ -78,22 +83,27 @@ auto get_peers(const Metainfo& meta) -> std::vector<std::string>
     return decode_peers(peers);
 }
 
-auto sha1_hash_to_bytes(std::string_view hash) -> std::vector<uint8_t>
+auto peer_handshake(std::string ip, std::string port, const Metainfo& meta)
+  -> std::string
 {
-    using namespace ::ranges;
+    curl::InitContext context;
 
-    auto hex_str_to_int = [](std::string hex_str) {
-        return std::stoi(hex_str, 0, 16);
-    };
+    auto msg = peers::pack_msg(peers::PeerHandshakeMsg{
+      .info_hash = meta.hash(), .peer_id = "00112233445566778899"
+    });
 
-    // clang-format off
-    return hash
-           | views::chunk(2)
-           | views::transform([&](auto chunk) {
-                return hex_str_to_int({chunk.begin(), chunk.end()});
-             })
-           | to<std::vector<uint8_t>>();
-    // clang-format on
+    auto [code, data] = curl::Curl().tcp_transfer(ip, port, msg);
+
+    if (code != CURLcode::CURLE_OK) {
+        throw std::runtime_error(fmt::format(
+          "Error while peer handshake: code {} ({})",
+          magic_enum::enum_name(code), curl_easy_strerror(code)
+        ));
+    }
+
+    auto answer = peers::unpack_msg<peers::PeerHandshakeMsg>(data);
+
+    return answer.peer_id;
 }
 
 auto decode_peers(bencode::Json::binary_t& peers) -> std::vector<std::string>
@@ -129,6 +139,26 @@ auto decode_ip_port_binary(std::span<std::uint8_t> bytes) -> std::string
     auto port = bytes[4] << 8 | bytes[5];
 
     return fmt::format("{0}:{1}", ip, port);
+}
+
+auto pack_peer_handshake_msg(const Metainfo& meta) -> std::vector<uint8_t>
+{
+    std::vector<uint8_t> message;
+
+    std::string_view header = "BitTorrent protocol";
+
+    message.push_back(header.size());
+    message.insert(message.end(), header.begin(), header.end());
+
+    message.insert(message.end(), 8, 0);
+
+    const auto hash = sha1_hash_to_bytes(meta.hash());
+    message.insert(message.end(), hash.begin(), hash.end());
+
+    std::string_view peer_id = "00112233445566778899";
+    message.insert(message.end(), peer_id.begin(), peer_id.end());
+
+    return message;
 }
 
 }  // namespace torrent::client

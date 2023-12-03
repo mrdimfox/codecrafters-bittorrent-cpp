@@ -1,6 +1,7 @@
 #include <cstdio>  // for stderr
 #include <cstdlib>
 #include <filesystem>
+#include <regex>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -41,6 +42,9 @@ auto decode_command(std::string encoded_value) -> ExitCode;
 auto info_command(fs::path torrent_file_path) -> ExitCode;
 auto dump_command(fs::path torrent_file_path) -> ExitCode;
 auto peers_command(fs::path torrent_file_path) -> ExitCode;
+auto peer_handshake_command(
+  fs::path torrent_file_path, std::string peer_ip_port
+) -> ExitCode;
 
 int main(int argc, char* argv[])
 {
@@ -75,6 +79,16 @@ int main(int argc, char* argv[])
         if (command == "peers") {
             EXPECTED(argc == 3, "Usage: {} peers <torrent_file_path>", argv[0]);
             return peers_command(argv[2]);
+        }
+
+        if (command == "handshake") {
+            EXPECTED(
+              argc == 4,
+              "Usage: {} handshake <torrent_file_path> <peer_ip>:<peer_port>",
+              argv[0]
+            );
+
+            return peer_handshake_command(argv[2], argv[3]);
         }
     } catch (std::runtime_error e) {
         fmt::println(stderr, "[ERROR] {}", e.what());
@@ -182,6 +196,45 @@ auto peers_command(fs::path torrent_file_path) -> ExitCode
 
     auto peers = torrent::client::get_peers(*metainfo);
     fmt::println("{}", fmt::join(peers, "\n"));
+
+    return ExitCode::Success;
+}
+
+
+auto peer_handshake_command(
+  fs::path torrent_file_path, std::string peer_ip_port
+) -> ExitCode
+{
+    EXPECTED(
+      fs::exists(torrent_file_path), "File not found: \"{}\"",
+      torrent_file_path.c_str()
+    );
+
+    auto metainfo = torrent::Metainfo::from_file(torrent_file_path);
+    EXPECTED(
+      metainfo.has_value(), "Error while file decoding: {}",
+      torrent_file_path.c_str()
+    );
+
+    std::regex port_ip_regex(R"((\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d{1,5}))"
+    );
+    std::smatch match;
+
+    if (not std::regex_match(peer_ip_port, match, port_ip_regex)) {
+        throw std::runtime_error(fmt::format(
+          "Peer ip and port must be in format \"<d.d.d.d>:<d>\" (d means "
+          "digit). Found: {0}",
+          peer_ip_port
+        ));
+    }
+
+    auto peer_ip = match[1].str();
+    auto peer_port = match[2].str();
+
+    auto peer_id =
+      torrent::client::peer_handshake(peer_ip, peer_port, *metainfo);
+
+    fmt::println("Peer ID: {}", peer_id);
 
     return ExitCode::Success;
 }

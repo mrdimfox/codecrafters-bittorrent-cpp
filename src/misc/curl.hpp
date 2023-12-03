@@ -27,12 +27,15 @@ struct InitContext
 
 struct Curl
 {
-    using Buffer = std::vector<char>;
+    using Buffer = std::vector<uint8_t>;
 
     Curl();
     inline ~Curl() { curl_easy_cleanup(_handle); }
 
     auto get(std::string url) -> std::tuple<CURLcode, Buffer>;
+    auto
+    tcp_transfer(std::string ip, std::string port, const std::vector<uint8_t>&)
+      -> std::tuple<CURLcode, Buffer>;
 
  private:
     CURL* _handle;
