@@ -1,7 +1,6 @@
 #include <cstdio>  // for stderr
 #include <cstdlib>
 #include <filesystem>
-#include <regex>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -13,6 +12,7 @@
 #include "bencode/consts.hpp"
 #include "bencode/decoders.hpp"
 #include "client.hpp"
+#include "misc/parse_ip_port.hpp"
 #include "torrent.hpp"
 
 using Json = nlohmann::json;
@@ -48,10 +48,6 @@ auto peer_handshake_command(
 
 int main(int argc, char* argv[])
 {
-#ifdef ENABLE_TESTS
-    tests();
-#endif
-
     if (argc < 2) {
         fmt::println(stderr, "Usage: {} decode <encoded_value>", argv[0]);
         fmt::println(stderr, "Usage: {} info <torrent_file_path>", argv[0]);
@@ -61,6 +57,13 @@ int main(int argc, char* argv[])
     std::string command = argv[1];
 
     try {
+        if (command == "test") {
+#ifdef ENABLE_TESTS
+            tests();
+#endif
+            return ExitCode::Success;
+        }
+
         if (command == "decode") {
             EXPECTED(argc == 3, "Usage: {} info <encoded_value>", argv[0]);
             return decode_command(argv[2]);
@@ -216,20 +219,7 @@ auto peer_handshake_command(
       torrent_file_path.c_str()
     );
 
-    std::regex port_ip_regex(R"((\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d{1,5}))"
-    );
-    std::smatch match;
-
-    if (not std::regex_match(peer_ip_port, match, port_ip_regex)) {
-        throw std::runtime_error(fmt::format(
-          "Peer ip and port must be in format \"<d.d.d.d>:<d>\" (d means "
-          "digit). Found: {0}",
-          peer_ip_port
-        ));
-    }
-
-    auto peer_ip = match[1].str();
-    auto peer_port = match[2].str();
+    auto [peer_ip, peer_port] = utils::parse_ip_port(peer_ip_port);
 
     auto peer_id =
       torrent::client::peer_handshake(peer_ip, peer_port, *metainfo);
