@@ -140,7 +140,7 @@ auto decode_command(std::string encoded_value) -> ExitCode
     EXPECTED(decoded.has_value(), "Error while decoding: {}", encoded_value);
 
     auto [_, decoded_value] = *decoded;
-    spdlog::debug("{}", decoded_value.dump());
+    fmt::println("{}", decoded_value.dump());
 
     return ExitCode::Success;
 }
