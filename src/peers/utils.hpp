@@ -16,10 +16,10 @@ inline auto pack_u32(uint32_t value) -> std::vector<uint8_t>
         assert(false);
     }
     else if constexpr (std::endian::native == std::endian::little) {
-        packed[0] = (unsigned)value << 24 & 0xFF;
-        packed[1] = (unsigned)value << 16 & 0xFF;
-        packed[2] = (unsigned)value << 8 & 0xFF;
-        packed[3] = (unsigned)value << 0 & 0xFF;
+        packed[0] = (value >> 24) & 0xFF;  // Most significant byte
+        packed[1] = (value >> 16) & 0xFF;
+        packed[2] = (value >> 8) & 0xFF;
+        packed[3] = value & 0xFF;          // Least significant byte
     }
 
     return packed;
@@ -27,8 +27,8 @@ inline auto pack_u32(uint32_t value) -> std::vector<uint8_t>
 
 inline auto unpack_u32(std::span<uint8_t> msg) -> uint32_t
 {
-    return (msg[3] << 0) | (msg[2] << 8) | (msg[1] << 16) |
-           ((unsigned)msg[0] << 24);
+    return (uint32_t)msg[0] << 24 | ((uint32_t)msg[1] << 16) |
+           ((uint32_t)msg[2] << 8) | ((uint32_t)msg[3]);
 }
 
 }  // namespace torrent::peers::utils

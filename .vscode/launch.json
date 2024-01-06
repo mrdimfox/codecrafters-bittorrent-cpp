@@ -33,7 +33,16 @@
             "request": "launch",
             "name": "(lldb) Launch",
             "program": "${workspaceFolder}/build/bittorrent",
-            "args": ["peers", "sample.torrent"],
+            "args": ["download_piece", "-o", "./out", "sample.torrent", "0"],
+            "cwd": "${workspaceFolder}",
+            "stopOnEntry": false
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "(lldb) Launch test",
+            "program": "${workspaceFolder}/build/bittorrent",
+            "args": ["test"],
             "cwd": "${workspaceFolder}",
             "stopOnEntry": false
         }

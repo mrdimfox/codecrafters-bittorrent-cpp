@@ -22,8 +22,13 @@ add_executable(
     "src/bencode/types.hpp"
     "src/bencode/tools.hpp"
     "src/bencode/consts.hpp"
-    "src/peers/peers.cpp"
     "src/peers/peers.hpp"
+    "src/peers/deserialize.cpp"
+    "src/peers/deserialize.hpp"
+    "src/peers/serialize.cpp"
+    "src/peers/serialize.hpp"
+    "src/peers/types.hpp"
+    "src/peers/utils.hpp"
     "src/misc/curl.cpp"
     "src/misc/curl.hpp"
 )
@@ -35,10 +40,21 @@ add_subdirectory(src/lib/range-v3)
 
 add_subdirectory(src/lib/magic_enum)
 
+set(SPDLOG_FMT_EXTERNAL ON)
+add_subdirectory(src/lib/spdlog-1.12.0)
+
+set(EXPECTED_BUILD_TESTS OFF)
+add_subdirectory(src/lib/expected)
+
 add_library(nlohmann_json INTERFACE)
 target_include_directories(nlohmann_json INTERFACE src/lib/nlohmann/include)
 
 find_package(CURL REQUIRED)
+
+add_library(asio INTERFACE)
+target_include_directories(asio INTERFACE src/lib/asio-1.28.0/include)
+target_compile_definitions(asio INTERFACE ASIO_STANDALONE ASIO_NO_DEPRECATED)
+target_link_options(asio INTERFACE -pthread)
 
 # Target
 target_compile_features(bittorrent PRIVATE cxx_std_20)
@@ -49,6 +65,9 @@ target_link_libraries(
             CURL::libcurl
             range-v3
             magic_enum::magic_enum
+            asio
+            tl::expected
+            spdlog::spdlog
 )
 target_include_directories(bittorrent PRIVATE src)
 

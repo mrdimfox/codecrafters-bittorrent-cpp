@@ -27,7 +27,7 @@
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/build",
             "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_BUILD_TYPE": "Release",
                 "ENABLE_TESTS": {
                     "type": "BOOL",
                     "value": "FALSE"

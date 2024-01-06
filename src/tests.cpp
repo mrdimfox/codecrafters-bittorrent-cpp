@@ -4,7 +4,6 @@
 #include <optional>
 #include <string_view>
 #include <system_error>
-#include <thread>
 #include <tuple>
 #include <vector>
 
@@ -18,13 +17,17 @@
 #include <asio/write.hpp>
 #include <fmt/core.h>
 #include <nlohmann/json.hpp>
+#include <spdlog/spdlog.h>
 
 #include "bencode/decoders.hpp"
 #include "bencode/encoders.hpp"
 #include "bencode/types.hpp"
-#include "magic_enum.hpp"
 #include "misc/tcp_transfer.hpp"
-#include "peers/peers.hpp"
+#include "peers/deserialize.hpp"
+#include "peers/serialize.hpp"
+#include "peers/types.hpp"
+
+#include "peers/utils.hpp"
 #include "torrent.hpp"
 
 using namespace bencode;
@@ -36,29 +39,40 @@ void test_encoding();
 void test_asio();
 void test_tcp_transfer();
 void test_pack_msg_id();
+void test_pack_u32();
 
 void tests()
 {
     test_decoding();
     test_encoding();
     // test_asio();
-    test_tcp_transfer();
     test_pack_msg_id();
+    test_pack_u32();
+    // test_tcp_transfer();
 
-    fmt::println("[DEBUG] All tests passed\n\n\n");
+    spdlog::debug("All tests passed");
 }
 
+void test_pack_u32()
+{
+    uint32_t a = 32768;
+    auto packed = torrent::peers::utils::pack_u32(a);
+    auto unpacked = torrent::peers::utils::unpack_u32(packed);
+    assert(unpacked == a);
+}
 
 void test_pack_msg_id()
 {
     using namespace torrent::peers;
-    auto id = MsgId::Interested;
-    auto packed = pack_msg_header(MsgId::Interested);
-    auto unpacked = unpack_msg_header(packed);
 
+    auto id = MsgId::Piece;
+    auto packed = torrent::peers::internal::pack_msg_header(id, 9);
+    auto unpacked = unpack_msg_header(packed);
     assert(unpacked);
+
+    auto header = *unpacked;
     assert(unpacked->id == id);
-    assert(unpacked->length == 1);
+    assert(unpacked->body_length == 8);
 }
 
 void test_tcp_transfer()
@@ -78,54 +92,48 @@ void test_tcp_transfer()
     {
         assert(socket.available() == 0);
 
-        auto handshake_msg = peers::pack_msg(peers::PeerHandshakeMsg{
+        auto handshake_msg = peers::pack_handshake(peers::PeerHandshakeMsg{
           .info_hash = meta->hash(), .peer_id = "00112233445566778899"
         });
 
         auto result =
-          net::exchange(io, socket, handshake_msg, handshake_msg.size());
+          net::tcp::exchange(io, socket, handshake_msg, handshake_msg.size());
 
-        if (not result.has_value()) {
-            socket.close();
-        }
-        assert(result.has_value());
+        assert(result);
 
-        auto answer = peers::unpack_msg<peers::PeerHandshakeMsg>(*result);
-        fmt::println("Info hash: {}", answer.info_hash);
+        auto answer = peers::unpack_handshake(*result);
+        spdlog::debug("Info hash: {}", answer.info_hash);
 
-        if (answer.info_hash != meta->hash()) {
-            socket.close();
-        }
         assert(answer.info_hash == meta->hash());
     }
 
     {
-        auto result = net::read(io, socket, peers::MSG_HEADER_SIZE);
+        auto result =
+          net::tcp::read(io, socket, peers::MsgHeader::SIZE_IN_BYTES);
 
-        if (result.has_value()) {
+        if (result) {
             auto answer = peers::unpack_msg_header(*result);
             assert(answer);
-            fmt::println("Read: {}", magic_enum::enum_name(answer->id));
+            spdlog::debug("Read: {}", magic_enum::enum_name(answer->id));
             if (answer->id == peers::MsgId::Bitfield) {
-                net::read(io, socket, answer->length - 1);
+                net::tcp::read(io, socket, answer->body_length);
             }
         }
     }
 
     {
-        auto interested_msg = peers::pack_msg_header(peers::MsgId::Interested);
+        auto interested_msg = peers::pack_interested_msg();
 
-        auto result =
-          net::exchange(io, socket, interested_msg, peers::MSG_HEADER_SIZE);
+        auto result = net::tcp::exchange(
+          io, socket, interested_msg, peers::MsgHeader::SIZE_IN_BYTES
+        );
 
-        if (not result.has_value()) {
-            socket.close();
-        }
         assert(result.has_value());
 
-        auto answer = peers::unpack_msg_header(*result);
-        assert(answer);
-        fmt::println("Answer: {}", magic_enum::enum_name(answer->id));
+        auto response = peers::unpack_msg_header(*result);
+        assert(response);
+
+        spdlog::debug("Answer: {}", magic_enum::enum_name(response->id));
     }
 
     socket.shutdown(asio::ip::tcp::socket::shutdown_receive);
@@ -143,7 +151,7 @@ void test_asio()
     auto meta = Metainfo::from_file("./sample.torrent");
     assert(meta.has_value());
 
-    auto msg = peers::pack_msg(peers::PeerHandshakeMsg{
+    auto msg = peers::pack_handshake(peers::PeerHandshakeMsg{
       .info_hash = meta->hash(), .peer_id = "00112233445566778899"
     });
 
@@ -156,10 +164,10 @@ void test_asio()
     // Write timeout timer
     asio::steady_timer write_timeout(io, 1s);
     auto on_write_timeout = [&socket](auto ec) {
-        fmt::println("Write timer timeout with code: {}", ec.message());
+        spdlog::debug("Write timer timeout with code: {}", ec.message());
 
         if (ec) {  // cancel socket on timer cancel
-            fmt::println("Read timer canceled");
+            spdlog::debug("Read timer canceled");
             socket.cancel();
         }
     };
@@ -170,7 +178,7 @@ void test_asio()
     // Read timeout timer (will be started later)
     asio::steady_timer read_timeout(io, 1s);
     auto on_read_timeout = [&socket](auto ec) {
-        fmt::println("Read timer timeout with code: {}", ec.message());
+        spdlog::debug("Read timer timeout with code: {}", ec.message());
         socket.cancel();
     };
 
@@ -186,7 +194,7 @@ void test_asio()
               write_timeout.cancel();
           }
 
-          fmt::println("Start read timeout after write transaction");
+          spdlog::debug("Start read timeout after write transaction");
           read_timeout.async_wait(on_read_timeout);
       }
     );
@@ -200,14 +208,14 @@ void test_asio()
       socket, asio::dynamic_buffer(data), asio::transfer_at_least(msg.size()),
       [&](auto ec, size_t) {
           read_ec = ec;
-          fmt::println("Read completed");
+          spdlog::debug("Read completed");
           read_timeout.cancel();
       }
     );
 
     io.run();
 
-    fmt::println(
+    spdlog::debug(
       "Write result: {}.\n Read result: {}", write_ec.message(),
       read_ec.message()
     );
@@ -215,9 +223,9 @@ void test_asio()
     assert(not write_ec);
     assert(not read_ec or read_ec == asio::error::operation_aborted);
 
-    auto answer = peers::unpack_msg<peers::PeerHandshakeMsg>(data);
+    auto answer = peers::unpack_handshake(data);
 
-    fmt::println("{}", answer.peer_id);
+    spdlog::debug("{}", answer.peer_id);
 }
 
 void test_decoding()

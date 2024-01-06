@@ -19,18 +19,10 @@
 #include <asio/write.hpp>
 #include <fmt/core.h>
 #include <fmt/format.h>
+#include <spdlog/spdlog.h>
 #include <tl/expected.hpp>
 
-namespace net {
-
-using ReadCallback = size_t (*)(std::span<uint8_t>, std::span<uint8_t>);
-
-inline size_t default_read_callback(
-  std::span<uint8_t> request, std::span<uint8_t> read_bytes
-)
-{
-    return 512 - read_bytes.size();
-}
+namespace net::tcp {
 
 /**
  * @brief Do a one TCP transfer (request + response)
@@ -70,16 +62,16 @@ class TcpTransfer
 
         _prepare_transfer(request, expected_response_length);
 
-        fmt::println("-- Start transfer.");
+        spdlog::debug("Start transfer.");
         _io.run();
 
-        fmt::println(
-          "-- Write result: {}. Read result: {}.", _write_error.message(),
+        spdlog::debug(
+          "Write result: {}. Read result: {}.", _write_error.message(),
           _read_error.message(), _buffer.size()
         );
-        fmt::println(
-          "-- Data: {0}", fmt::format("{:02x}", fmt::join(_buffer, ", "))
-        );
+        // spdlog::debug(
+        //   "Data: {0}", fmt::format("{:02x}", fmt::join(_buffer, ", "))
+        // );
 
         if (_write_error) {
             return tl::make_unexpected(_write_error);
@@ -104,13 +96,13 @@ class TcpTransfer
 
         _prepare_read(expected_response_length);
 
-        fmt::println("-- Start reading.");
+        spdlog::debug("Start reading.");
         _io.run();
 
-        fmt::println("-- Read result: {0}", _read_error.message());
-        fmt::println(
-          "-- Data: {0}", fmt::format("{:02x}", fmt::join(_buffer, ", "))
-        );
+        spdlog::debug("Read result: {0}", _read_error.message());
+        // spdlog::debug(
+        //   "Data: {0}", fmt::format("{:02x}", fmt::join(_buffer, ", "))
+        // );
 
         if (_read_error) {
             return tl::make_unexpected(_read_error);
@@ -173,18 +165,18 @@ class TcpTransfer
         _write_timeout_timer.cancel();
 
         if (_write_error = ec; _write_error) {
-            fmt::println(stderr, "-- Write error, transfer interrupted.");
+            spdlog::error("Write error, transfer interrupted.");
             _socket.cancel();
             return;
         }
 
-        fmt::println("-- Writing compete.");
+        spdlog::debug("Writing compete.");
 
         _read_timeout_timer.async_wait([this](asio::error_code ec) {
             _on_read_timeout(ec);
         });
 
-        fmt::println("-- Start reading.");
+        spdlog::debug("Start reading.");
         asio::async_read(
           _socket, asio::buffer(_buffer, _expected_response_length),
           [this](auto ec, size_t bytes_read) {
@@ -203,7 +195,7 @@ class TcpTransfer
         }
 
         if (not error) {
-            fmt::println(stderr, "-- Write timeout expired");
+            spdlog::error("Write timeout expired");
             _socket.cancel();
         }
     }
@@ -222,8 +214,8 @@ class TcpTransfer
             _on_read_timeout(ec);
         });
 
-        fmt::println(
-          "-- Read partly completed, bytes read overall: {}", bytes_read
+        spdlog::debug(
+          "Read partly completed, bytes read overall: {}", bytes_read
         );
 
         return _expected_response_length - bytes_read;
@@ -235,23 +227,23 @@ class TcpTransfer
         _read_timeout_timer.cancel();
 
         if (_read_error = error; _read_error) {
-            fmt::println(
-              stderr, "-- Read finished abnormally: {}", _read_error.message()
+            spdlog::error(
+              "Read finished abnormally: {}", _read_error.message()
             );
             _socket.cancel();
         }
 
-        fmt::println("-- Read completed, bytes read: {}", bytes_read);
+        spdlog::debug("Read completed, bytes read: {}", bytes_read);
     }
 
     inline auto _on_read_timeout(asio::error_code ec) -> void
     {
         if (ec == asio::error::operation_aborted) {
-            fmt::println("-- Read timer reset.");
+            spdlog::debug("Read timer reset.");
         }
 
         if (!ec) {
-            fmt::println(stderr, "Read timeout expired.");
+            spdlog::error("Read timeout expired.");
             _socket.cancel();
         }
     }
@@ -291,4 +283,4 @@ inline auto read(
     return TcpTransfer(io, socket).do_read(expected_response_length);
 }
 
-}  // namespace net
+}  // namespace net::tcp

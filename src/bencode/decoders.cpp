@@ -3,8 +3,6 @@
 #include <string>
 #include <string_view>
 
-#include <fmt/core.h>
-
 #include "bencode/consts.hpp"
 #include "bencode/decoders.hpp"
 #include "bencode/tools.hpp"
