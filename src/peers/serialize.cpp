@@ -22,7 +22,8 @@ auto pack_unchoke_msg() -> std::vector<uint8_t>
     return pack_msg_header(MsgId::Unchoke, 1);
 }
 
-auto pack_request_msg(uint32_t piece_idx, uint32_t begin, uint32_t length) -> std::vector<uint8_t>
+auto pack_request_msg(uint32_t piece_idx, uint32_t begin, uint32_t length)
+  -> std::vector<uint8_t>
 {
     const auto piece_idx_bytes = utils::pack_u32(piece_idx);
     const auto begin_bytes = utils::pack_u32(begin);

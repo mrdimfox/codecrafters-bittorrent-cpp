@@ -360,8 +360,7 @@ inline std::string SHA1::final()
     /* Hex std::string */
     std::ostringstream result;
     for (size_t i = 0; i < sizeof(digest) / sizeof(digest[0]); i++) {
-        result << std::hex << std::setfill('0') << std::setw(2);
-        result << digest[i];
+        result << std::hex << std::setfill('0') << std::setw(8) << digest[i];
     }
 
     /* Reset for next run */
