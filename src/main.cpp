@@ -166,20 +166,10 @@ auto info_command(fs::path torrent_file_path) -> ExitCode
 
     const auto pieces = metainfo->pieces();
 
-    EXPECTED(
-      pieces.size() % 20 == 0,
-      R"(pieces field length must be divisible by {}. Actual size {})",
-      bencode::PIECE_HASH_LENGTH, pieces.size()
-    );
-
     fmt::println("Piece Hashes:");
 
-    for (auto iter = pieces.begin(); iter != pieces.end();
-         iter += bencode::PIECE_HASH_LENGTH) {
-
-        std::span hash_bytes{iter, std::next(iter, bencode::PIECE_HASH_LENGTH)};
-
-        fmt::println("{:02x}", fmt::join(hash_bytes, ""));
+    for (auto&& piece : pieces) {
+        fmt::println("{:02x}", fmt::join(piece, ""));
     }
 
     return ExitCode::Success;

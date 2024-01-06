@@ -19,7 +19,7 @@ struct Metainfo
       -> std::optional<Metainfo>;
 
     auto hash() const -> std::string;
-    auto pieces() const -> bencode::Json::binary_t;
+    auto pieces() const -> std::vector<std::vector<uint8_t>>;
 };
 
 auto metainfo(std::filesystem::path) -> std::optional<nlohmann::json>;

@@ -226,11 +226,17 @@ auto download_piece(
     }
 
     std::vector<uint8_t> piece;
+    const auto pieces_count = meta.pieces().size();
+    const auto last_block_len = meta.piece_length % pieces_count;
+
+    const auto piece_len =
+      (piece_idx == pieces_count - 1) ? last_block_len : meta.piece_length;
 
     const auto max_block_len = 16 * 1024;
 
-    while (piece.size() != meta.piece_length) {
-        const auto remain_bytes = meta.piece_length - piece.size();
+    while (piece.size() != piece_len) {
+        const auto remain_bytes = piece_len - piece.size();
+
         const auto block_len =
           remain_bytes > max_block_len ? max_block_len : remain_bytes;
 

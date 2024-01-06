@@ -9,8 +9,10 @@
 
 #include <fmt/core.h>
 #include <nlohmann/json.hpp>
+#include <vector>
 
 
+#include "bencode/consts.hpp"
 #include "bencode/decoders.hpp"
 #include "bencode/encoders.hpp"
 #include "bencode/types.hpp"
@@ -70,10 +72,19 @@ auto Metainfo::hash() const -> std::string
     return checksum.final();
 }
 
-auto Metainfo::pieces() const -> bencode::Json::binary_t
+auto Metainfo::pieces() const -> std::vector<std::vector<uint8_t>>
 {
-    return this->raw.value("info", bencode::Json())
-      .value("pieces", bencode::Json::binary_t());
+    auto pieces_bytes = this->raw.value("info", bencode::Json())
+                          .value("pieces", bencode::Json::binary_t());
+
+    std::vector<std::vector<uint8_t>> pieces;
+
+    for (auto iter = pieces_bytes.begin(); iter != pieces_bytes.end();
+         iter += bencode::PIECE_HASH_LENGTH) {
+        pieces.push_back({iter, std::next(iter, bencode::PIECE_HASH_LENGTH)});
+    }
+
+    return pieces;
 }
 
 auto metainfo(std::filesystem::path file_path) -> std::optional<nlohmann::json>
