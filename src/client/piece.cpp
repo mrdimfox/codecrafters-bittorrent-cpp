@@ -127,7 +127,7 @@ void PieceWorker::_connect_to_peer()
 
     socket.connect(endpoint);
     _do_handshake();
-    _do_bitfield();
+    _do_bitfield_or_unchoke();
     _do_interested();
     is_peer_connection_established = true;
 }
@@ -165,7 +165,7 @@ void PieceWorker::_do_handshake()
     }
 }
 
-auto PieceWorker::_do_bitfield() -> void
+auto PieceWorker::_do_bitfield_or_unchoke() -> void
 {
     spdlog::debug("BITFIELD");
 
@@ -191,12 +191,19 @@ auto PieceWorker::_do_bitfield() -> void
             );
         });
     }
+    else if (answer->id == peers::MsgId::Unchoke) {
+        spdlog::debug("Peer is ready.");
+    }
     else {
-        throw std::runtime_error(fmt::format(
+        const auto msg = fmt::format(
           "Unexpected msg id from peer: {}. Expected Bitfield ({})",
           magic_enum::enum_integer(answer->id),
           magic_enum::enum_integer(peers::MsgId::Bitfield)
-        ));
+        );
+
+        spdlog::debug(msg);
+
+        throw std::runtime_error(msg);
     }
 }
 
@@ -223,7 +230,16 @@ auto PieceWorker::_do_interested() -> void
 
     spdlog::debug("Answer: {}", magic_enum::enum_name(response->id));
 
-    if (response->id != peers::MsgId::Unchoke) {
+    if (response->id == peers::MsgId::Have) {
+        // Skip have message
+        net::tcp::read(io, socket, response->body_length)
+          .map_error([](auto&& e) {
+              throw std::runtime_error(
+                fmt::format("Connection error: {}", e.message())
+              );
+          });
+    }
+    else if (response->id != peers::MsgId::Unchoke) {
         throw std::runtime_error(fmt::format(
           "Peer not ready to transmit data: peer answer {}",
           magic_enum::enum_name(response->id)

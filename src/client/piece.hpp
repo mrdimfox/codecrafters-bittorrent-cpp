@@ -71,7 +71,7 @@ class PieceWorker
                 _download_piece(index);
                 is_piece_transfer_complete = true;
             } catch (std::exception e) {
-                exception = std::current_exception();
+                _exception = std::current_exception();
             }
         });
     }
@@ -86,7 +86,7 @@ class PieceWorker
             try {
                 _connect_to_peer();
             } catch (std::exception e) {
-                exception = std::current_exception();
+                _exception = std::current_exception();
             }
         });
     }
@@ -112,7 +112,7 @@ class PieceWorker
     }
 
     inline bool started() { return thread.joinable(); }
-    inline bool raise() { std::rethrow_exception(exception); }
+    inline bool raise() { std::rethrow_exception(_exception); }
 
     /**
      * @brief Return piece data if it is stored internally
@@ -130,7 +130,7 @@ class PieceWorker
 
     void _connect_to_peer();
     void _do_handshake();
-    void _do_bitfield();
+    void _do_bitfield_or_unchoke();
     void _do_interested();
 
     void _check_piece_hash(
@@ -150,7 +150,7 @@ class PieceWorker
 
     std::jthread thread;
 
-    std::exception_ptr exception;
+    std::exception_ptr _exception;
 
     std::basic_ostream<char> _owned_ostream;
     std::basic_ostream<char>& _ostream;

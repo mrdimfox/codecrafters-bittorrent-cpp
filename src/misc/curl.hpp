@@ -3,6 +3,7 @@
 #include <string>
 #include <tuple>
 #include <vector>
+#include <cstdint>
 
 #include <curl/curl.h>
 

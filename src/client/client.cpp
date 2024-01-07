@@ -188,7 +188,9 @@ auto download_file(
             bytes_received += w->piece().size();
             ostream.write(w->piece().data(), w->piece().size());
             spdlog::debug("Pieces received: {} bytes", w->piece().size());
-            spdlog::info("Piece {}/{} received", pieces_count_requested, pieces_count);
+            spdlog::info(
+              "Piece {}/{} received", pieces_count_requested, pieces_count
+            );
         }
 
         pieces_count_awaiting = 0;
