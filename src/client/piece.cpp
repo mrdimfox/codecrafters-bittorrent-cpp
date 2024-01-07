@@ -2,34 +2,40 @@
 
 #include <cstddef>
 #include <spdlog/spdlog.h>
+#include <stdexcept>
+#include <string_view>
 
+#include "fmt/core.h"
+#include "misc/sha1.hpp"
 #include "misc/tcp_transfer.hpp"
 #include "peers/deserialize.hpp"
 #include "peers/serialize.hpp"
+#include "peers/types.hpp"
 
 namespace torrent::client {
+
+constexpr const auto MAX_BLOCK_LEN = 16 * 1024;
 
 auto PieceWorker::_download_piece(size_t piece_idx) -> void
 {
     using namespace ::torrent;
 
-    _ostream.clear();
-    _ostream.seekp(0);
+    _buffer.consume(_buffer.size());  // clear buffer
 
     spdlog::debug(
-      "Receive piece {} from peer {}:{}", piece_idx, peer_ip, peer_port
+      "{}:{} Start receiving piece {} from peer", peer_ip, peer_port, piece_idx
     );
 
     if (not is_peer_connection_established) {
         _connect_to_peer();
     }
 
+    const auto piece_hashes = meta.pieces();
     const auto last_piece_len = meta.length % meta.piece_length;
-    const auto piece_len = (piece_idx == meta.pieces().size() - 1)
+    const auto piece_len = (piece_idx == piece_hashes.size() - 1)
                              ? last_piece_len
                              : meta.piece_length;
 
-    const auto max_block_len = 16 * 1024;
     size_t received_bytes = 0;
 
     spdlog::debug("{}:{} Read piece {}", peer_ip, peer_port, piece_idx);
@@ -38,7 +44,7 @@ auto PieceWorker::_download_piece(size_t piece_idx) -> void
         const auto remain_bytes = piece_len - received_bytes;
 
         const auto block_len =
-          remain_bytes > max_block_len ? max_block_len : remain_bytes;
+          remain_bytes > MAX_BLOCK_LEN ? MAX_BLOCK_LEN : remain_bytes;
 
         spdlog::debug("{}:{} Request {} bytes", peer_ip, peer_port, block_len);
 
@@ -72,7 +78,9 @@ auto PieceWorker::_download_piece(size_t piece_idx) -> void
 
         spdlog::debug(
           "{}:{} Piece answer: {}, block len: {}", peer_ip, peer_port,
-          magic_enum::enum_name(piece_header->id), piece_header->body_length
+          magic_enum::enum_name(piece_header->id),
+          piece_header->body_length - peers::PieceMsg::BEGIN_SIZE -
+            peers::PieceMsg::INDEX_SIZE
         );
 
         auto piece_body =  //
@@ -92,8 +100,8 @@ auto PieceWorker::_download_piece(size_t piece_idx) -> void
           });
 
         spdlog::debug(
-          "{}:{} Piece received: idx {}, begin: {}", peer_ip, peer_port,
-          piece_msg->index, piece_msg->begin
+          "{}:{} Piece received: idx {}, begin: {}, block len: {}", peer_ip,
+          peer_port, piece_msg->index, piece_msg->begin, piece_msg->block.size()
         );
 
         _ostream.write(
@@ -102,6 +110,12 @@ auto PieceWorker::_download_piece(size_t piece_idx) -> void
         );
 
         received_bytes += piece_msg->block.size();
+    }
+
+    spdlog::debug("Count of bytes received: {0}", received_bytes);
+
+    if (received_bytes != piece_len) {
+        throw std::runtime_error("Piece integrity is broken");
     }
 
     _ostream.flush();
@@ -213,6 +227,30 @@ auto PieceWorker::_do_interested() -> void
         throw std::runtime_error(fmt::format(
           "Peer not ready to transmit data: peer answer {}",
           magic_enum::enum_name(response->id)
+        ));
+    }
+}
+
+void PieceWorker::_check_piece_hash(
+  const size_t& piece_idx,
+  const std::vector<uint8_t>& piece_hash,
+  const peers::PieceMsg& piece_msg
+) const
+{
+    auto sha = SHA1();
+
+    sha.update(std::string_view(
+      reinterpret_cast<const char*>(piece_msg.block.data()),
+      piece_msg.block.size()
+    ));
+
+    const auto calculated_piece_hash = sha.final();
+    const auto expected_hash = fmt::format("{:02x}", fmt::join(piece_hash, ""));
+
+    if (expected_hash != calculated_piece_hash) {
+        throw std::runtime_error(fmt::format(
+          "Bad piece {} hash: expected {}, got {}", piece_idx, expected_hash,
+          calculated_piece_hash
         ));
     }
 }

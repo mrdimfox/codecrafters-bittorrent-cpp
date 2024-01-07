@@ -29,6 +29,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <range/v3/range/conversion.hpp>
@@ -42,6 +43,7 @@ class SHA1
  public:
     SHA1();
     void update(const std::string& s);
+    void update(std::string_view s);
     void update(std::istream& is);
     std::string final();
     static std::string from_file(const std::string& filename);
@@ -305,6 +307,12 @@ inline SHA1::SHA1()
 inline void SHA1::update(const std::string& s)
 {
     std::istringstream is(s);
+    update(is);
+}
+
+inline void SHA1::update(std::string_view s)
+{
+    std::istringstream is{std::string(s)};
     update(is);
 }
 

@@ -2,7 +2,6 @@
 
 #include <cstddef>
 #include <exception>
-#include <mutex>
 #include <ostream>
 #include <stdexcept>
 #include <string>
@@ -13,6 +12,7 @@
 #include <thread>
 #include <vector>
 
+#include "peers/types.hpp"
 #include "torrent.hpp"
 
 namespace torrent::client {
@@ -55,8 +55,6 @@ class PieceWorker
             thread.join();
         }
 
-        thread_pool.stop();
-        thread_pool.join();
         socket.close();
         io.stop();
     }
@@ -113,14 +111,19 @@ class PieceWorker
         return is_peer_connection_established;
     }
 
-    inline bool started()
-    {
-        return thread.joinable();
-    }
-
+    inline bool started() { return thread.joinable(); }
     inline bool raise() { std::rethrow_exception(exception); }
 
-    inline const std::string_view piece() { return _buffer.view(); }
+    /**
+     * @brief Return piece data if it is stored internally
+     */
+    inline std::string_view piece()
+    {
+        return {
+          reinterpret_cast<const char*>(_buffer.data().data()),
+          _buffer.data().size()
+        };
+    }
 
  private:
     void _download_piece(size_t piece_idx);
@@ -130,6 +133,12 @@ class PieceWorker
     void _do_bitfield();
     void _do_interested();
 
+    void _check_piece_hash(
+      const size_t& piece_idx,
+      const std::vector<uint8_t>& piece_hash,
+      const peers::PieceMsg& piece_msg
+    ) const;
+
     const Metainfo& meta;
 
     std::string peer_ip;
@@ -138,16 +147,14 @@ class PieceWorker
     asio::io_context io;
     asio::ip::tcp::endpoint endpoint;
     asio::ip::tcp::socket socket;
-    asio::thread_pool thread_pool;
 
     std::jthread thread;
 
     std::exception_ptr exception;
 
-    // vecbuf<char> _buffer;
     std::basic_ostream<char> _owned_ostream;
     std::basic_ostream<char>& _ostream;
-    std::stringbuf _buffer;
+    asio::streambuf _buffer;
 
     bool is_piece_transfer_complete = false;
     bool is_peer_connection_established = false;
