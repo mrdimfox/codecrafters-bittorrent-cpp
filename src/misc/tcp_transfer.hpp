@@ -62,15 +62,12 @@ class TcpTransfer
 
         _prepare_transfer(request, expected_response_length);
 
-        spdlog::debug("Start transfer.");
+        // spdlog::debug("Start transfer.");
         _io.run();
 
-        spdlog::debug(
-          "Write result: {}. Read result: {}.", _write_error.message(),
-          _read_error.message(), _buffer.size()
-        );
         // spdlog::debug(
-        //   "Data: {0}", fmt::format("{:02x}", fmt::join(_buffer, ", "))
+        //   "Write result: {}. Read result: {}.", _write_error.message(),
+        //   _read_error.message(), _buffer.size()
         // );
 
         if (_write_error) {
@@ -96,13 +93,10 @@ class TcpTransfer
 
         _prepare_read(expected_response_length);
 
-        spdlog::debug("Start reading.");
+        // spdlog::debug("Start reading.");
         _io.run();
 
-        spdlog::debug("Read result: {0}", _read_error.message());
-        // spdlog::debug(
-        //   "Data: {0}", fmt::format("{:02x}", fmt::join(_buffer, ", "))
-        // );
+        // spdlog::debug("Read result: {0}", _read_error.message());
 
         if (_read_error) {
             return tl::make_unexpected(_read_error);
@@ -170,13 +164,13 @@ class TcpTransfer
             return;
         }
 
-        spdlog::debug("Writing compete.");
+        // spdlog::debug("Writing compete.");
 
         _read_timeout_timer.async_wait([this](asio::error_code ec) {
             _on_read_timeout(ec);
         });
 
-        spdlog::debug("Start reading.");
+        // spdlog::debug("Start reading.");
         asio::async_read(
           _socket, asio::buffer(_buffer, _expected_response_length),
           [this](auto ec, size_t bytes_read) {
@@ -214,9 +208,9 @@ class TcpTransfer
             _on_read_timeout(ec);
         });
 
-        spdlog::debug(
-          "Read partly completed, bytes read overall: {}", bytes_read
-        );
+        // spdlog::debug(
+        //   "Read partly completed, bytes read overall: {}", bytes_read
+        // );
 
         return _expected_response_length - bytes_read;
     }
@@ -233,13 +227,13 @@ class TcpTransfer
             _socket.cancel();
         }
 
-        spdlog::debug("Read completed, bytes read: {}", bytes_read);
+        // spdlog::debug("Read completed, bytes read: {}", bytes_read);
     }
 
     inline auto _on_read_timeout(asio::error_code ec) -> void
     {
         if (ec == asio::error::operation_aborted) {
-            spdlog::debug("Read timer reset.");
+            // spdlog::debug("Read timer reset.");
         }
 
         if (!ec) {

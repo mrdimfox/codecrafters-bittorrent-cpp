@@ -13,8 +13,10 @@ add_executable(
     src/tests.cpp
     "src/torrent.cpp"
     "src/torrent.hpp"
-    "src/client.hpp"
-    "src/client.cpp"
+    "src/client/client.hpp"
+    "src/client/client.cpp"
+    "src/client/piece.cpp"
+    "src/client/piece.cpp"
     "src/bencode/decoders.cpp"
     "src/bencode/decoders.hpp"
     "src/bencode/encoders.hpp"

@@ -20,7 +20,20 @@ auto peer_handshake(std::string ip, std::string port, const Metainfo&)
  * @brief Download piece by its id
  */
 auto download_piece(
-  const Metainfo& meta, std::string peer_ip, std::string peer_port, std::size_t piece_idx
-) -> std::vector<uint8_t>;
+  const Metainfo& meta,
+  std::string peer_ip,
+  std::string peer_port,
+  std::size_t piece_idx,
+  std::basic_ostream<char>& ostream
+) -> void;
+
+/**
+ * @brief Download full file
+ */
+auto download_file(
+  const Metainfo& meta,
+  const std::vector<std::string> peers,
+  std::basic_ostream<char>& ostream
+) -> void;
 
 }  // namespace torrent::client

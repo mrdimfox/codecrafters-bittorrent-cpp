@@ -14,7 +14,7 @@
 
 #include "bencode/consts.hpp"
 #include "bencode/decoders.hpp"
-#include "client.hpp"
+#include "client/client.hpp"
 #include "misc/parse_ip_port.hpp"
 #include "spdlog/common.h"
 #include "torrent.hpp"
@@ -52,6 +52,9 @@ auto peer_handshake_command(
 auto download_piece_command(
   fs::path torrent_file_path, fs::path output_file_path, std::size_t piece_idx
 ) -> ExitCode;
+auto download_file_command(
+  fs::path torrent_file_path, fs::path output_file_path
+) -> ExitCode;
 
 int main(int argc, char* argv[])
 {
@@ -68,6 +71,7 @@ int main(int argc, char* argv[])
         spdlog::error("  {} peers <torrent_file_path>", argv[0]);
         spdlog::error("  {} handshake <torrent_file_path> <peer_ip>:<peer_port>", argv[0]);
         spdlog::error("  {} download_piece -o <output_file_path> <torrent_file_path> <piece_idx>", argv[0]);
+        spdlog::error("  {} download -o <output_file_path> <torrent_file_path>", argv[0]);
         // clang-format on
         return 1;
     }
@@ -123,6 +127,17 @@ int main(int argc, char* argv[])
             auto idx = std::stoull(argv[5]);
 
             return download_piece_command(argv[4], argv[3], idx);
+        }
+
+        if (command == "download") {
+            EXPECTED(
+              argc == 5,
+              "Usage: {} download -o <output_file_path> "
+              "<torrent_file_path>",
+              argv[0]
+            );
+
+            return download_file_command(argv[4], argv[3]);
         }
     } catch (std::runtime_error e) {
         spdlog::error("{}", e.what());
@@ -278,16 +293,56 @@ auto download_piece_command(
 
     auto [peer_ip, peer_port] = utils::parse_ip_port(peers[0]);
 
-    const auto piece =
-      torrent::client::download_piece(*metainfo, peer_ip, peer_port, piece_idx);
+    std::ofstream ofs;
+    ofs.open(output_file_path, std::ios::out | std::ios::binary);
+    EXPECTED(ofs, "Can't write to file {}", output_file_path.c_str());
+
+    torrent::client::download_piece(
+      *metainfo, peer_ip, peer_port, piece_idx, ofs
+    );
+
+    fmt::print(
+      "Piece {} downloaded to {}.", piece_idx, output_file_path.c_str()
+    );
+
+    return ExitCode::Success;
+}
+
+
+auto download_file_command(
+  fs::path torrent_file_path, fs::path output_file_path
+) -> ExitCode
+{
+    EXPECTED(
+      fs::exists(torrent_file_path), "File not found: \"{}\"",
+      torrent_file_path.c_str()
+    );
+
+    EXPECTED(
+      fs::exists(output_file_path.parent_path()), "Path not found: \"{}\"",
+      torrent_file_path.parent_path().c_str()
+    );
+
+    auto metainfo = torrent::Metainfo::from_file(torrent_file_path);
+    EXPECTED(
+      metainfo.has_value(), "Error while torrent file decoding: {}",
+      torrent_file_path.c_str()
+    );
+
+    auto peers = torrent::client::get_peers(*metainfo);
+    EXPECTED(
+      peers.size() > 0, "No peers returned from server: {}", metainfo->announce
+    );
 
     std::ofstream ofs;
     ofs.open(output_file_path, std::ios::out | std::ios::binary);
     EXPECTED(ofs, "Can't write to file {}", output_file_path.c_str());
-    ofs.write(reinterpret_cast<const char*>(piece.data()), piece.size());
+
+    torrent::client::download_file(*metainfo, peers, ofs);
 
     fmt::print(
-      "Piece {} downloaded to {}.", piece_idx, output_file_path.c_str()
+      "Downloaded {} to {}.", torrent_file_path.c_str(),
+      output_file_path.c_str()
     );
 
     return ExitCode::Success;
