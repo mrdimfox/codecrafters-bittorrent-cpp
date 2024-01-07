@@ -48,3 +48,12 @@ _deps
 build/
 
 .tmp/
+
+.debhelper
+debian/bittorent-by-dimka/DEBIAN/control
+debian/bittorent-by-dimka/DEBIAN/md5sums
+debian/bittorent-by-dimka/usr/share/doc/bittorent-by-dimka/changelog.gz
+debian/bittorent-by-dimka.debhelper.log
+debian/bittorent-by-dimka.substvars
+debian/debhelper-build-stamp
+debian/files
