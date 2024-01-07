@@ -7,7 +7,6 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
-#include <thread>
 #include <vector>
 
 #include <asio.hpp>
@@ -160,6 +159,10 @@ auto download_file(
         }
     }
 
+    if (workers.size() < 1) {
+        throw std::runtime_error("No peers available!");
+    }
+
     size_t pieces_count_requested = 0;
     size_t pieces_count_awaiting = 0;
 
@@ -170,6 +173,7 @@ auto download_file(
             }
 
             workers[i_worker]->download_piece_async(pieces_count_requested);
+            spdlog::info("Start piece {} downloading", pieces_count_requested);
             pieces_count_requested += 1;
             pieces_count_awaiting += 1;
         }
@@ -184,6 +188,7 @@ auto download_file(
             bytes_received += w->piece().size();
             ostream.write(w->piece().data(), w->piece().size());
             spdlog::debug("Pieces received: {} bytes", w->piece().size());
+            spdlog::info("Piece {}/{} received", pieces_count_requested, pieces_count);
         }
 
         pieces_count_awaiting = 0;
