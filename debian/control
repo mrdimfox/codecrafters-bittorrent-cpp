@@ -1,0 +1,15 @@
+Source: bittorent-by-dimka
+Section: dev
+Priority: optional
+Maintainer: "Dimka" <dimka@kek.pek>
+Build-Depends: debhelper-compat (= 12),
+    cmake,
+    libcurl-dev
+Standards-Version: 4.5.1
+Homepage: dimka.kek.pek
+Rules-Requires-Root: no
+
+Package: bittorent-by-dimka
+Architecture: all
+Depends: ${misc:Depends}
+Description: Package for bittorent-by-dimka
