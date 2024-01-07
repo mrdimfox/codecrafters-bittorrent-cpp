@@ -56,25 +56,6 @@ auto download_file_command(
   fs::path torrent_file_path, fs::path output_file_path
 ) -> ExitCode;
 
-int main2() {
-    asio::streambuf buf;
-    std::basic_ostream<char> stream(&buf);
-
-    std::array<char, 1000> arr;
-    stream.write(arr.data(), arr.size());
-
-    fmt::println("buf.size() = {}", buf.size());
-
-    assert(buf.size() == arr.size());
-
-    buf.consume(arr.size());
-
-    stream.write(arr.data(), arr.size()/2);
-    fmt::println("buf.size() = {}", buf.size());
-    assert(buf.size() == arr.size()/2);  // failes here
-
-    return 0;
-}
 
 int main(int argc, char* argv[])
 {
