@@ -3,9 +3,9 @@
 #include <cstdint>
 #include <vector>
 
-#include "peers/types.hpp"
+#include "proto/types.hpp"
 
-namespace torrent::peers {
+namespace torrent::proto {
 
 auto pack_interested_msg() -> std::vector<uint8_t>;
 auto pack_unchoke_msg() -> std::vector<uint8_t>;
@@ -21,4 +21,4 @@ auto pack_msg_header(MsgId msg_id, size_t length) -> std::vector<uint8_t>;
 
 }
 
-}  // namespace torrent::peers
+}  // namespace torrent::proto

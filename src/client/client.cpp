@@ -24,8 +24,8 @@
 #include "misc/parse_ip_port.hpp"
 #include "misc/sha1.hpp"
 #include "misc/url.hpp"
-#include "peers/peers.hpp"
-#include "peers/types.hpp"
+#include "proto/proto.hpp"
+#include "proto/types.hpp"
 #include "torrent.hpp"
 
 namespace torrent::client {
@@ -89,7 +89,7 @@ auto peer_handshake(std::string ip, std::string port, const Metainfo& meta)
 {
     curl::InitContext context;
 
-    auto msg = peers::pack_handshake(peers::PeerHandshakeMsg{
+    auto msg = proto::pack_handshake(proto::PeerHandshakeMsg{
       .info_hash = meta.hash(), .peer_id = "00112233445566778899"
     });
 
@@ -102,7 +102,7 @@ auto peer_handshake(std::string ip, std::string port, const Metainfo& meta)
         ));
     }
 
-    auto answer = peers::unpack_handshake(data);
+    auto answer = proto::unpack_handshake(data);
 
     return answer.peer_id;
 }

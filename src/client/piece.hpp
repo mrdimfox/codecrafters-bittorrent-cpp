@@ -12,7 +12,7 @@
 #include <thread>
 #include <vector>
 
-#include "peers/types.hpp"
+#include "proto/types.hpp"
 #include "torrent.hpp"
 
 namespace torrent::client {
@@ -111,19 +111,21 @@ class PieceWorker
         return is_peer_connection_established;
     }
 
-    inline bool started() { return thread.joinable(); }
-    inline bool raise() { std::rethrow_exception(_exception); }
+    inline bool started() const noexcept { return thread.joinable(); }
+    inline bool raise() const { std::rethrow_exception(_exception); }
 
     /**
      * @brief Return piece data if it is stored internally
      */
-    inline std::string_view piece()
+    inline std::string_view piece() const
     {
         return {
           reinterpret_cast<const char*>(_buffer.data().data()),
           _buffer.data().size()
         };
     }
+
+    inline std::size_t last_piece_idx() const { return _last_piece_idx; }
 
  private:
     void _download_piece(size_t piece_idx);
@@ -136,7 +138,7 @@ class PieceWorker
     void _check_piece_hash(
       const size_t& piece_idx,
       const std::vector<uint8_t>& piece_hash,
-      const peers::PieceMsg& piece_msg
+      const proto::PieceMsg& piece_msg
     ) const;
 
     const Metainfo& meta;
@@ -158,6 +160,7 @@ class PieceWorker
 
     bool is_piece_transfer_complete = false;
     bool is_peer_connection_established = false;
+    size_t _last_piece_idx = 0;
 };
 
 }  // namespace torrent::client

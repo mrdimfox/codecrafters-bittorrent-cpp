@@ -6,7 +6,7 @@
 #include <span>
 #include <vector>
 
-namespace torrent::peers::utils {
+namespace torrent::proto::utils {
 
 inline auto pack_u32(uint32_t value) -> std::vector<uint8_t>
 {
@@ -31,4 +31,4 @@ inline auto unpack_u32(std::span<uint8_t> msg) -> uint32_t
            ((uint32_t)msg[2] << 8) | ((uint32_t)msg[3]);
 }
 
-}  // namespace torrent::peers::utils
+}  // namespace torrent::proto::utils

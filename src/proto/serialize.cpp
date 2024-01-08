@@ -1,13 +1,13 @@
-#include "peers/serialize.hpp"
+#include "proto/serialize.hpp"
 
 #include <cstdint>
 #include <vector>
 
 #include "misc/sha1.hpp"
-#include "peers/types.hpp"
-#include "peers/utils.hpp"
+#include "proto/types.hpp"
+#include "proto/utils.hpp"
 
-namespace torrent::peers {
+namespace torrent::proto {
 
 using namespace internal;
 
@@ -56,10 +56,10 @@ auto pack_handshake(PeerHandshakeMsg msg) -> std::vector<uint8_t>
     return packed;
 }
 
-}  // namespace torrent::peers
+}  // namespace torrent::proto
 
 
-namespace torrent::peers::internal {
+namespace torrent::proto::internal {
 
 auto pack_msg_header(MsgId msg_id, size_t length) -> std::vector<uint8_t>
 {
@@ -68,4 +68,4 @@ auto pack_msg_header(MsgId msg_id, size_t length) -> std::vector<uint8_t>
     return packed;
 }
 
-}  // namespace torrent::peers::internal
+}  // namespace torrent::proto::internal

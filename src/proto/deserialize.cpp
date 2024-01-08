@@ -1,4 +1,4 @@
-#include "peers/deserialize.hpp"
+#include "proto/deserialize.hpp"
 
 #include <cstdint>
 #include <iterator>
@@ -10,11 +10,11 @@
 #include <tl/expected.hpp>
 #include <vector>
 
-#include "peers/types.hpp"
-#include "peers/utils.hpp"
+#include "proto/types.hpp"
+#include "proto/utils.hpp"
 
 
-namespace torrent::peers {
+namespace torrent::proto {
 
 auto unpack_msg_header(std::span<uint8_t> msg) -> tl::expected<MsgHeader, Error>
 {
@@ -83,4 +83,4 @@ auto unpack_handshake(std::span<uint8_t> msg) -> PeerHandshakeMsg
     };
 }
 
-}  // namespace torrent::peers
+}  // namespace torrent::proto

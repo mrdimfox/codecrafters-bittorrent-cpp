@@ -319,10 +319,12 @@ auto download_file_command(
       torrent_file_path.c_str()
     );
 
-    EXPECTED(
-      fs::exists(output_file_path.parent_path()), "Path not found: \"{}\"",
-      torrent_file_path.parent_path().c_str()
-    );
+    if (output_file_path.has_parent_path()) {
+        EXPECTED(
+          fs::exists(output_file_path.parent_path()), "Path not found: \"{}\"",
+          torrent_file_path.parent_path().c_str()
+        );
+    }
 
     auto metainfo = torrent::Metainfo::from_file(torrent_file_path);
     EXPECTED(

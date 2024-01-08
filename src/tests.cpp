@@ -23,11 +23,11 @@
 #include "bencode/encoders.hpp"
 #include "bencode/types.hpp"
 #include "misc/tcp_transfer.hpp"
-#include "peers/deserialize.hpp"
-#include "peers/serialize.hpp"
-#include "peers/types.hpp"
+#include "proto/deserialize.hpp"
+#include "proto/serialize.hpp"
+#include "proto/types.hpp"
 
-#include "peers/utils.hpp"
+#include "proto/utils.hpp"
 #include "torrent.hpp"
 
 using namespace bencode;
@@ -56,17 +56,17 @@ void tests()
 void test_pack_u32()
 {
     uint32_t a = 32768;
-    auto packed = torrent::peers::utils::pack_u32(a);
-    auto unpacked = torrent::peers::utils::unpack_u32(packed);
+    auto packed = torrent::proto::utils::pack_u32(a);
+    auto unpacked = torrent::proto::utils::unpack_u32(packed);
     assert(unpacked == a);
 }
 
 void test_pack_msg_id()
 {
-    using namespace torrent::peers;
+    using namespace torrent::proto;
 
     auto id = MsgId::Piece;
-    auto packed = torrent::peers::internal::pack_msg_header(id, 9);
+    auto packed = torrent::proto::internal::pack_msg_header(id, 9);
     auto unpacked = unpack_msg_header(packed);
     assert(unpacked);
 
@@ -92,7 +92,7 @@ void test_tcp_transfer()
     {
         assert(socket.available() == 0);
 
-        auto handshake_msg = peers::pack_handshake(peers::PeerHandshakeMsg{
+        auto handshake_msg = proto::pack_handshake(proto::PeerHandshakeMsg{
           .info_hash = meta->hash(), .peer_id = "00112233445566778899"
         });
 
@@ -101,7 +101,7 @@ void test_tcp_transfer()
 
         assert(result);
 
-        auto answer = peers::unpack_handshake(*result);
+        auto answer = proto::unpack_handshake(*result);
         spdlog::debug("Info hash: {}", answer.info_hash);
 
         assert(answer.info_hash == meta->hash());
@@ -109,28 +109,28 @@ void test_tcp_transfer()
 
     {
         auto result =
-          net::tcp::read(io, socket, peers::MsgHeader::SIZE_IN_BYTES);
+          net::tcp::read(io, socket, proto::MsgHeader::SIZE_IN_BYTES);
 
         if (result) {
-            auto answer = peers::unpack_msg_header(*result);
+            auto answer = proto::unpack_msg_header(*result);
             assert(answer);
             spdlog::debug("Read: {}", magic_enum::enum_name(answer->id));
-            if (answer->id == peers::MsgId::Bitfield) {
+            if (answer->id == proto::MsgId::Bitfield) {
                 net::tcp::read(io, socket, answer->body_length);
             }
         }
     }
 
     {
-        auto interested_msg = peers::pack_interested_msg();
+        auto interested_msg = proto::pack_interested_msg();
 
         auto result = net::tcp::exchange(
-          io, socket, interested_msg, peers::MsgHeader::SIZE_IN_BYTES
+          io, socket, interested_msg, proto::MsgHeader::SIZE_IN_BYTES
         );
 
         assert(result.has_value());
 
-        auto response = peers::unpack_msg_header(*result);
+        auto response = proto::unpack_msg_header(*result);
         assert(response);
 
         spdlog::debug("Answer: {}", magic_enum::enum_name(response->id));
@@ -151,7 +151,7 @@ void test_asio()
     auto meta = Metainfo::from_file("./sample.torrent");
     assert(meta.has_value());
 
-    auto msg = peers::pack_handshake(peers::PeerHandshakeMsg{
+    auto msg = proto::pack_handshake(proto::PeerHandshakeMsg{
       .info_hash = meta->hash(), .peer_id = "00112233445566778899"
     });
 
@@ -223,7 +223,7 @@ void test_asio()
     assert(not write_ec);
     assert(not read_ec or read_ec == asio::error::operation_aborted);
 
-    auto answer = peers::unpack_handshake(data);
+    auto answer = proto::unpack_handshake(data);
 
     spdlog::debug("{}", answer.peer_id);
 }

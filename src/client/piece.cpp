@@ -8,9 +8,9 @@
 #include "fmt/core.h"
 #include "misc/sha1.hpp"
 #include "misc/tcp_transfer.hpp"
-#include "peers/deserialize.hpp"
-#include "peers/serialize.hpp"
-#include "peers/types.hpp"
+#include "proto/deserialize.hpp"
+#include "proto/serialize.hpp"
+#include "proto/types.hpp"
 
 namespace torrent::client {
 
@@ -29,6 +29,8 @@ auto PieceWorker::_download_piece(size_t piece_idx) -> void
     if (not is_peer_connection_established) {
         _connect_to_peer();
     }
+
+    _do_interested();
 
     const auto piece_hashes = meta.pieces();
     const auto last_piece_len = meta.length % meta.piece_length;
@@ -49,11 +51,11 @@ auto PieceWorker::_download_piece(size_t piece_idx) -> void
         spdlog::debug("{}:{} Request {} bytes", peer_ip, peer_port, block_len);
 
         auto request_msg =
-          peers::pack_request_msg(piece_idx, received_bytes, block_len);
+          proto::pack_request_msg(piece_idx, received_bytes, block_len);
 
         auto request_answer =
           net::tcp::exchange(
-            io, socket, request_msg, peers::MsgHeader::SIZE_IN_BYTES
+            io, socket, request_msg, proto::MsgHeader::SIZE_IN_BYTES
           )
             .map_error([this](auto&& e) {
                 throw std::runtime_error(fmt::format(
@@ -62,14 +64,14 @@ auto PieceWorker::_download_piece(size_t piece_idx) -> void
             });
 
         auto piece_header =
-          peers::unpack_msg_header(*request_answer).map_error([this](auto&& e) {
+          proto::unpack_msg_header(*request_answer).map_error([this](auto&& e) {
               throw std::runtime_error(fmt::format(
                 "{}:{} Unexpected answer from peer: {}", peer_ip, peer_port,
                 magic_enum::enum_name(e)
               ));
           });
 
-        if (piece_header->id != peers::MsgId::Piece) {
+        if (piece_header->id != proto::MsgId::Piece) {
             throw std::runtime_error(fmt::format(
               "{}:{} Peer not ready to transmit data: peer answer {}", peer_ip,
               peer_port, magic_enum::enum_name(piece_header->id)
@@ -79,8 +81,8 @@ auto PieceWorker::_download_piece(size_t piece_idx) -> void
         spdlog::debug(
           "{}:{} Piece answer: {}, block len: {}", peer_ip, peer_port,
           magic_enum::enum_name(piece_header->id),
-          piece_header->body_length - peers::PieceMsg::BEGIN_SIZE -
-            peers::PieceMsg::INDEX_SIZE
+          piece_header->body_length - proto::PieceMsg::BEGIN_SIZE -
+            proto::PieceMsg::INDEX_SIZE
         );
 
         auto piece_body =  //
@@ -92,7 +94,7 @@ auto PieceWorker::_download_piece(size_t piece_idx) -> void
             });
 
         auto piece_msg =
-          peers::unpack_piece_msg(*piece_body).map_error([this](auto&& e) {
+          proto::unpack_piece_msg(*piece_body).map_error([this](auto&& e) {
               throw std::runtime_error(fmt::format(
                 "{}:{} Unexpected answer from peer: {}", peer_ip, peer_port,
                 magic_enum::enum_name(e)
@@ -128,7 +130,6 @@ void PieceWorker::_connect_to_peer()
     socket.connect(endpoint);
     _do_handshake();
     _do_bitfield_or_unchoke();
-    _do_interested();
     is_peer_connection_established = true;
 }
 
@@ -142,7 +143,7 @@ void PieceWorker::_do_handshake()
         );
     }
 
-    auto handshake_msg = peers::pack_handshake(peers::PeerHandshakeMsg{
+    auto handshake_msg = proto::pack_handshake(proto::PeerHandshakeMsg{
       .info_hash = meta.hash(), .peer_id = "00112233445566778899"
     });
 
@@ -154,7 +155,7 @@ void PieceWorker::_do_handshake()
             );
         });
 
-    auto answer = peers::unpack_handshake(*result);
+    auto answer = proto::unpack_handshake(*result);
     spdlog::debug("Info hash: {}", answer.info_hash);
 
     if (answer.info_hash != meta.hash()) {
@@ -169,14 +170,14 @@ auto PieceWorker::_do_bitfield_or_unchoke() -> void
 {
     spdlog::debug("BITFIELD");
 
-    auto result = net::tcp::read(io, socket, peers::MsgHeader::SIZE_IN_BYTES)
+    auto result = net::tcp::read(io, socket, proto::MsgHeader::SIZE_IN_BYTES)
                     .map_error([](auto&& e) {
                         throw std::runtime_error(
                           fmt::format("Connection error: {}", e.message())
                         );
                     });
 
-    auto answer = peers::unpack_msg_header(*result).map_error([](auto&& e) {
+    auto answer = proto::unpack_msg_header(*result).map_error([](auto&& e) {
         throw std::runtime_error(fmt::format(
           "Unexpected answer from peer: {}", magic_enum::enum_name(e)
         ));
@@ -184,21 +185,21 @@ auto PieceWorker::_do_bitfield_or_unchoke() -> void
 
     spdlog::debug("Read: {}", magic_enum::enum_name(answer->id));
 
-    if (answer->id == peers::MsgId::Bitfield) {
+    if (answer->id == proto::MsgId::Bitfield) {
         net::tcp::read(io, socket, answer->body_length).map_error([](auto&& e) {
             throw std::runtime_error(
               fmt::format("Connection error: {}", e.message())
             );
         });
     }
-    else if (answer->id == peers::MsgId::Unchoke) {
+    else if (answer->id == proto::MsgId::Unchoke) {
         spdlog::debug("Peer is ready.");
     }
     else {
         const auto msg = fmt::format(
           "Unexpected msg id from peer: {}. Expected Bitfield ({})",
           magic_enum::enum_integer(answer->id),
-          magic_enum::enum_integer(peers::MsgId::Bitfield)
+          magic_enum::enum_integer(proto::MsgId::Bitfield)
         );
 
         spdlog::debug(msg);
@@ -211,10 +212,10 @@ auto PieceWorker::_do_interested() -> void
 {
     spdlog::debug("INTERESTED");
 
-    auto interested_msg = peers::pack_interested_msg();
+    auto interested_msg = proto::pack_interested_msg();
 
     auto result = net::tcp::exchange(
-                    io, socket, interested_msg, peers::MsgHeader::SIZE_IN_BYTES
+                    io, socket, interested_msg, proto::MsgHeader::SIZE_IN_BYTES
     )
                     .map_error([](auto&& e) {
                         throw std::runtime_error(
@@ -222,7 +223,7 @@ auto PieceWorker::_do_interested() -> void
                         );
                     });
 
-    auto response = peers::unpack_msg_header(*result).map_error([](auto&& e) {
+    auto response = proto::unpack_msg_header(*result).map_error([](auto&& e) {
         throw std::runtime_error(fmt::format(
           "Unexpected answer from peer: {}", magic_enum::enum_name(e)
         ));
@@ -230,8 +231,8 @@ auto PieceWorker::_do_interested() -> void
 
     spdlog::debug("Answer: {}", magic_enum::enum_name(response->id));
 
-    if (response->id == peers::MsgId::Have) {
-        // Skip have message
+    if (response->id == proto::MsgId::Have) {
+        // Skip HAVE message
         net::tcp::read(io, socket, response->body_length)
           .map_error([](auto&& e) {
               throw std::runtime_error(
@@ -239,7 +240,7 @@ auto PieceWorker::_do_interested() -> void
               );
           });
     }
-    else if (response->id != peers::MsgId::Unchoke) {
+    else if (response->id != proto::MsgId::Unchoke) {
         throw std::runtime_error(fmt::format(
           "Peer not ready to transmit data: peer answer {}",
           magic_enum::enum_name(response->id)
@@ -250,7 +251,7 @@ auto PieceWorker::_do_interested() -> void
 void PieceWorker::_check_piece_hash(
   const size_t& piece_idx,
   const std::vector<uint8_t>& piece_hash,
-  const peers::PieceMsg& piece_msg
+  const proto::PieceMsg& piece_msg
 ) const
 {
     auto sha = SHA1();

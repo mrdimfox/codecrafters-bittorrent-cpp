@@ -9,7 +9,7 @@
 #include <magic_enum.hpp>
 #include <vector>
 
-namespace torrent::peers {
+namespace torrent::proto {
 
 enum class MsgId : uint8_t
 {
@@ -68,4 +68,4 @@ struct PieceMsg
     std::vector<uint8_t> block;
 };
 
-}  // namespace torrent::peers
+}  // namespace torrent::proto

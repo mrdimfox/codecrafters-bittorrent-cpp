@@ -5,9 +5,9 @@
 
 #include <tl/expected.hpp>
 
-#include "peers/types.hpp"
+#include "proto/types.hpp"
 
-namespace torrent::peers {
+namespace torrent::proto {
 
 auto unpack_msg_header(std::span<uint8_t> msg)
   -> tl::expected<MsgHeader, Error>;
@@ -17,4 +17,4 @@ auto unpack_piece_msg(std::span<uint8_t> msg)
 
 auto unpack_handshake(std::span<uint8_t> msg) -> PeerHandshakeMsg;
 
-}  // namespace torrent::peers
+}  // namespace torrent::proto
