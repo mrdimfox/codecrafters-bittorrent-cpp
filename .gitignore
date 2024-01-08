@@ -57,3 +57,5 @@ debian/bittorent-by-dimka.debhelper.log
 debian/bittorent-by-dimka.substvars
 debian/debhelper-build-stamp
 debian/files
+
+!/Makefile
