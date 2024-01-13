@@ -1,16 +1,18 @@
 #pragma once
 
+#include <atomic>
 #include <cstddef>
 #include <exception>
+#include <functional>
 #include <ostream>
 #include <stdexcept>
 #include <string>
+#include <thread>
+#include <vector>
 
 #include <asio.hpp>
 #include <asio/io_context.hpp>
 #include <asio/thread_pool.hpp>
-#include <thread>
-#include <vector>
 
 #include "proto/types.hpp"
 #include "torrent.hpp"
@@ -20,8 +22,17 @@ namespace torrent::client {
 class PieceWorker
 {
  public:
+    using ProgressCb = std::function<void(
+      std::size_t /* piece_idx */,
+      std::size_t /* downloaded */,
+      std::size_t /* bytes_overall */
+    )>;
+
     inline PieceWorker(
-      const Metainfo& meta, std::string peer_ip, std::size_t peer_port
+      const Metainfo& meta,
+      std::string peer_ip,
+      std::size_t peer_port,
+      ProgressCb progress_cb = [](std::size_t, std::size_t, std::size_t) {}
     ) :
       meta(meta),
       peer_ip(peer_ip),
@@ -29,7 +40,8 @@ class PieceWorker
       endpoint(asio::ip::make_address(peer_ip), peer_port),
       socket(io),
       _owned_ostream(&_buffer),
-      _ostream(_owned_ostream)
+      _ostream(_owned_ostream),
+      _progress_callback(progress_cb)
     {
     }
 
@@ -37,7 +49,8 @@ class PieceWorker
       const Metainfo& meta,
       std::string peer_ip,
       std::size_t peer_port,
-      std::basic_ostream<char>& stream
+      std::basic_ostream<char>& stream,
+      ProgressCb progress_cb = [](std::size_t, std::size_t, std::size_t) {}
     ) :
       meta(meta),
       peer_ip(peer_ip),
@@ -45,7 +58,8 @@ class PieceWorker
       endpoint(asio::ip::make_address(peer_ip), peer_port),
       socket(io),
       _owned_ostream(&_buffer),
-      _ostream(stream)
+      _ostream(stream),
+      _progress_callback(progress_cb)
     {
     }
 
@@ -127,6 +141,11 @@ class PieceWorker
 
     inline std::size_t last_piece_idx() const { return _last_piece_idx; }
 
+    inline auto progress() -> std::optional<std::size_t>
+    {
+        return _progress.load();
+    }
+
  private:
     void _download_piece(size_t piece_idx);
 
@@ -164,6 +183,9 @@ class PieceWorker
     bool is_peer_connection_established = false;
     size_t _last_piece_idx = 0;
     std::optional<size_t> _have_piece_idx;
+    std::atomic_size_t _progress;
+
+    ProgressCb _progress_callback;
 };
 
 }  // namespace torrent::client

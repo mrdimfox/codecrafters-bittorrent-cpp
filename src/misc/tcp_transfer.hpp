@@ -1,8 +1,10 @@
 #pragma once
 
+#include "spdlog/logger.h"
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
+#include <memory>
 #include <span>
 #include <system_error>
 #include <vector>
@@ -40,7 +42,8 @@ class TcpTransfer
       _read_timeout(read_timeout),
       _write_timeout(std::chrono::seconds(2)),
       _read_timeout_timer(_io, _read_timeout),
-      _write_timeout_timer(_io, _write_timeout)
+      _write_timeout_timer(_io, _write_timeout),
+      _logger(spdlog::get("internal_logger"))
     {
     }
 
@@ -66,13 +69,13 @@ class TcpTransfer
 
         _prepare_transfer(request, expected_response_length);
 
-        // spdlog::debug("Start transfer.");
+        _logger->debug("Start transfer.");
         _io.run();
 
-        // spdlog::debug(
-        //   "Write result: {}. Read result: {}.", _write_error.message(),
-        //   _read_error.message(), _buffer.size()
-        // );
+        _logger->debug(
+          "Write result: {}. Read result: {}.", _write_error.message(),
+          _read_error.message(), _buffer.size()
+        );
 
         if (_write_error) {
             return tl::make_unexpected(_write_error);
@@ -97,10 +100,10 @@ class TcpTransfer
 
         _prepare_read(expected_response_length);
 
-        // spdlog::debug("Start reading.");
+        _logger->debug("Start reading.");
         _io.run();
 
-        // spdlog::debug("Read result: {0}", _read_error.message());
+        _logger->debug("Read result: {0}", _read_error.message());
 
         if (_read_error) {
             return tl::make_unexpected(_read_error);
@@ -163,18 +166,18 @@ class TcpTransfer
         _write_timeout_timer.cancel();
 
         if (_write_error = ec; _write_error) {
-            spdlog::error("Write error, transfer interrupted.");
+            _logger->error("Write error, transfer interrupted.");
             _socket.cancel();
             return;
         }
 
-        // spdlog::debug("Writing compete.");
+        _logger->debug("Writing compete.");
 
         _read_timeout_timer.async_wait([this](asio::error_code ec) {
             _on_read_timeout(ec);
         });
 
-        // spdlog::debug("Start reading.");
+        _logger->debug("Start reading.");
         asio::async_read(
           _socket, asio::buffer(_buffer, _expected_response_length),
           [this](auto ec, size_t bytes_read) {
@@ -193,7 +196,7 @@ class TcpTransfer
         }
 
         if (not error) {
-            spdlog::error("Write timeout expired");
+            _logger->error("Write timeout expired");
             _socket.cancel();
         }
     }
@@ -212,9 +215,9 @@ class TcpTransfer
             _on_read_timeout(ec);
         });
 
-        // spdlog::debug(
-        //   "Read partly completed, bytes read overall: {}", bytes_read
-        // );
+        _logger->debug(
+          "Read partly completed, bytes read overall: {}", bytes_read
+        );
 
         return _expected_response_length - bytes_read;
     }
@@ -225,23 +228,23 @@ class TcpTransfer
         _read_timeout_timer.cancel();
 
         if (_read_error = error; _read_error) {
-            spdlog::error(
+            _logger->error(
               "Read finished abnormally: {}", _read_error.message()
             );
             _socket.cancel();
         }
 
-        // spdlog::debug("Read completed, bytes read: {}", bytes_read);
+        _logger->debug("Read completed, bytes read: {}", bytes_read);
     }
 
     inline auto _on_read_timeout(asio::error_code ec) -> void
     {
         if (ec == asio::error::operation_aborted) {
-            // spdlog::debug("Read timer reset.");
+            _logger->debug("Read timer reset.");
         }
 
         if (!ec) {
-            spdlog::error("Read timeout expired.");
+            _logger->error("Read timeout expired.");
             _socket.cancel();
         }
     }
@@ -259,6 +262,8 @@ class TcpTransfer
 
     std::vector<uint8_t> _buffer;
     std::size_t _expected_response_length = 64;
+
+    std::shared_ptr<spdlog::logger> _logger;
 };
 
 inline auto exchange(

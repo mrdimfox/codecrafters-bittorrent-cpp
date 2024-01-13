@@ -1,5 +1,6 @@
 #include "piece.hpp"
 
+#include <chrono>
 #include <cstddef>
 #include <optional>
 #include <spdlog/spdlog.h>
@@ -22,6 +23,7 @@ auto PieceWorker::_download_piece(size_t piece_idx) -> void
     using namespace ::torrent;
 
     _buffer.consume(_buffer.size());  // clear buffer
+    _progress.store(0);
 
     if (_have_piece_idx) {
         piece_idx = _have_piece_idx.value();
@@ -116,6 +118,9 @@ auto PieceWorker::_download_piece(size_t piece_idx) -> void
         );
 
         received_bytes += piece_msg->block.size();
+
+        _progress.fetch_add((size_t(double(received_bytes) / piece_len) * 100));
+        _progress_callback(piece_idx, received_bytes, piece_len);
     }
 
     spdlog::debug("Count of bytes received: {0}", received_bytes);
@@ -135,8 +140,8 @@ auto PieceWorker::_download_piece(size_t piece_idx) -> void
 void PieceWorker::_connect_to_peer()
 {
     spdlog::debug("Handshake with peer {}:{}", peer_ip, peer_port);
-
     socket.connect(endpoint);
+
     _do_handshake();
     _do_bitfield_or_unchoke();
     _do_interested();

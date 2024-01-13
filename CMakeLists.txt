@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.13)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 20)
 
-project(bittorrent-starter-cpp)
+project(bittorrent-starter-cpp CXX C)
 
 # Executable
 add_executable(
@@ -44,6 +44,8 @@ add_subdirectory(src/lib/range-v3)
 
 add_subdirectory(src/lib/magic_enum)
 
+add_subdirectory(src/lib/indicators)
+
 set(SPDLOG_FMT_EXTERNAL ON)
 add_subdirectory(src/lib/spdlog-1.12.0)
 
@@ -74,6 +76,7 @@ target_link_libraries(
             asio
             tl::expected
             spdlog::spdlog
+            indicators::indicators
 )
 target_include_directories(bittorrent PRIVATE src)
 

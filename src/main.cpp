@@ -1,7 +1,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
-#include <ostream>
 #include <stdexcept>
 #include <string>
 
@@ -9,10 +8,10 @@
 #include <fmt/ranges.h>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
 
 #include <fstream>
 
-#include "asio/streambuf.hpp"
 #include "bencode/decoders.hpp"
 #include "client/client.hpp"
 #include "misc/parse_ip_port.hpp"
@@ -59,19 +58,16 @@ auto download_file_command(
 
 #include <range/v3/view.hpp>
 
-// int main() {
-//     std::vector indexes = {0, 1, 2};
-//     std::vector<std::size_t> available_workers;
-
-//     for (auto&& [i, w] : ranges::views::zip(indexes, available_workers)) {
-//         spdlog::info("{} {}", i, w);
-//     }
-// }
-
 int main(int argc, char* argv[])
 {
+    auto internal_logger = spdlog::stdout_color_mt("internal_logger");
+
 #ifndef NDEBUG
-    spdlog::set_level(spdlog::level::debug);
+    spdlog::set_level(spdlog::level::off);
+    internal_logger->set_level(spdlog::level::err);
+#else
+    spdlog::set_level(spdlog::level::err);
+    internal_logger->set_level(spdlog::level::off);
 #endif
 
     if (argc < 2) {
@@ -287,10 +283,12 @@ auto download_piece_command(
       torrent_file_path.c_str()
     );
 
-    EXPECTED(
-      fs::exists(output_file_path.parent_path()), "Path not found: \"{}\"",
-      torrent_file_path.parent_path().c_str()
-    );
+    if (output_file_path.has_parent_path()) {
+        EXPECTED(
+          fs::exists(output_file_path.parent_path()), "Path not found: \"{}\"",
+          torrent_file_path.parent_path().c_str()
+        );
+    }
 
     auto metainfo = torrent::Metainfo::from_file(torrent_file_path);
     EXPECTED(
