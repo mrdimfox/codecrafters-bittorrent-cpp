@@ -16,7 +16,7 @@
 
 namespace torrent::proto {
 
-auto unpack_msg_header(std::span<uint8_t> msg) -> tl::expected<MsgHeader, Error>
+auto unpack_msg_header(std::span<const uint8_t> msg) -> tl::expected<MsgHeader, Error>
 {
     if (msg.size() < MsgHeader::SIZE_IN_BYTES) {
         return tl::make_unexpected(Error::INCOMPLETE_MESSAGE);
@@ -37,8 +37,7 @@ auto unpack_msg_header(std::span<uint8_t> msg) -> tl::expected<MsgHeader, Error>
     return MsgHeader{*msg_id, length - 1};
 }
 
-auto unpack_piece_msg(std::span<uint8_t> msg)
-  -> tl::expected<PieceMsg, Error>
+auto unpack_piece_msg(std::span<const uint8_t> msg) -> tl::expected<PieceMsg, Error>
 {
     if (msg.size() < PieceMsg::MIN_SIZE) {
         return tl::make_unexpected(Error::INCOMPLETE_MESSAGE);
@@ -59,7 +58,20 @@ auto unpack_piece_msg(std::span<uint8_t> msg)
     return PieceMsg{index, begin, std::vector(iter, msg.end())};
 }
 
-auto unpack_handshake(std::span<uint8_t> msg) -> PeerHandshakeMsg
+auto unpack_have_msg(std::span<const uint8_t> msg) -> tl::expected<HaveMsg, Error>
+{
+    if (msg.size() < HaveMsg::MIN_SIZE) {
+        return tl::make_unexpected(Error::INCOMPLETE_MESSAGE);
+    }
+
+    const auto iter = msg.begin();
+    const auto index =
+      utils::unpack_u32({iter, std::next(iter, PieceMsg::INDEX_SIZE)});
+
+    return HaveMsg{.index = index};
+}
+
+auto unpack_handshake(std::span<const uint8_t> msg) -> PeerHandshakeMsg
 {
     if (msg.size() < PeerHandshakeMsg::SIZE) {
         throw std::runtime_error(

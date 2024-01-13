@@ -68,4 +68,11 @@ struct PieceMsg
     std::vector<uint8_t> block;
 };
 
+struct HaveMsg
+{
+    constexpr static std::size_t INDEX_SIZE = 4;
+    constexpr static size_t MIN_SIZE = INDEX_SIZE;
+    std::size_t index;
+};
+
 }  // namespace torrent::proto

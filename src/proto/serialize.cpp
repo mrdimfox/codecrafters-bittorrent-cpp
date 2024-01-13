@@ -16,6 +16,11 @@ auto pack_interested_msg() -> std::vector<uint8_t>
     return pack_msg_header(MsgId::Interested, 1);
 }
 
+auto pack_not_interested_msg() -> std::vector<uint8_t>
+{
+    return pack_msg_header(MsgId::NotInterested, 1);
+}
+
 
 auto pack_unchoke_msg() -> std::vector<uint8_t>
 {
@@ -35,6 +40,19 @@ auto pack_request_msg(uint32_t piece_idx, uint32_t begin, uint32_t length)
     msg.insert(msg.end(), length_bytes.begin(), length_bytes.end());
 
     const auto header = pack_msg_header(MsgId::Request, msg.size() + 1);
+    msg.insert(msg.begin(), header.begin(), header.end());
+
+    return msg;
+}
+
+auto pack_have_msg(uint32_t piece_idx) -> std::vector<uint8_t>
+{
+    const auto piece_idx_bytes = utils::pack_u32(piece_idx);
+
+    std::vector<uint8_t> msg;
+    msg.insert(msg.end(), piece_idx_bytes.begin(), piece_idx_bytes.end());
+
+    const auto header = pack_msg_header(MsgId::Have, msg.size() + 1);
     msg.insert(msg.begin(), header.begin(), header.end());
 
     return msg;

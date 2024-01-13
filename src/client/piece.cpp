@@ -1,6 +1,7 @@
 #include "piece.hpp"
 
 #include <cstddef>
+#include <optional>
 #include <spdlog/spdlog.h>
 #include <stdexcept>
 #include <string_view>
@@ -22,6 +23,11 @@ auto PieceWorker::_download_piece(size_t piece_idx) -> void
 
     _buffer.consume(_buffer.size());  // clear buffer
 
+    if (_have_piece_idx) {
+        piece_idx = _have_piece_idx.value();
+        _have_piece_idx = std::nullopt;
+    }
+
     spdlog::debug(
       "{}:{} Start receiving piece {} from peer", peer_ip, peer_port, piece_idx
     );
@@ -29,8 +35,6 @@ auto PieceWorker::_download_piece(size_t piece_idx) -> void
     if (not is_peer_connection_established) {
         _connect_to_peer();
     }
-
-    _do_interested();
 
     const auto piece_hashes = meta.pieces();
     const auto last_piece_len = meta.length % meta.piece_length;
@@ -121,6 +125,11 @@ auto PieceWorker::_download_piece(size_t piece_idx) -> void
     }
 
     _ostream.flush();
+
+    _last_piece_idx = piece_idx;
+    if (not _skip_have) {
+        _try_have();
+    }
 }
 
 void PieceWorker::_connect_to_peer()
@@ -130,6 +139,8 @@ void PieceWorker::_connect_to_peer()
     socket.connect(endpoint);
     _do_handshake();
     _do_bitfield_or_unchoke();
+    _do_interested();
+
     is_peer_connection_established = true;
 }
 
@@ -232,13 +243,73 @@ auto PieceWorker::_do_interested() -> void
     spdlog::debug("Answer: {}", magic_enum::enum_name(response->id));
 
     if (response->id == proto::MsgId::Have) {
-        // Skip HAVE message
-        net::tcp::read(io, socket, response->body_length)
-          .map_error([](auto&& e) {
-              throw std::runtime_error(
-                fmt::format("Connection error: {}", e.message())
-              );
-          });
+        const auto body =
+          net::tcp::read(io, socket, response->body_length)
+            .map_error([](auto&& e) {
+                throw std::runtime_error(
+                  fmt::format("Connection error: {}", e.message())
+                );
+            });
+
+        const auto msg = proto::unpack_have_msg(*body).map_error([](auto&& e) {
+            throw std::runtime_error(fmt::format(
+              "Unexpected answer from peer: {}", magic_enum::enum_name(e)
+            ));
+        });
+
+        _have_piece_idx = msg->index;
+    }
+    else if (response->id != proto::MsgId::Unchoke) {
+        throw std::runtime_error(fmt::format(
+          "Peer not ready to transmit data: peer answer {}",
+          magic_enum::enum_name(response->id)
+        ));
+    }
+}
+
+void PieceWorker::_try_have()
+{
+    using namespace std::chrono_literals;
+
+    spdlog::debug("TRY HAVE {} ->", _last_piece_idx);
+
+    auto interested_msg = proto::pack_have_msg(_last_piece_idx);
+
+    auto result =  //
+      net::tcp::exchange(
+        io, socket, interested_msg, proto::MsgHeader::SIZE_IN_BYTES, 1s
+      );
+
+    if (not result and result.error() == asio::error::operation_aborted) {
+        spdlog::debug("NO HAVE");
+        _skip_have = true;
+        return;
+    }
+
+    auto response = proto::unpack_msg_header(*result).map_error([](auto&& e) {
+        throw std::runtime_error(fmt::format(
+          "Unexpected answer from peer: {}", magic_enum::enum_name(e)
+        ));
+    });
+
+    spdlog::debug("Answer: {}", magic_enum::enum_name(response->id));
+
+    if (response->id == proto::MsgId::Have) {
+        const auto body =
+          net::tcp::read(io, socket, response->body_length)
+            .map_error([](auto&& e) {
+                throw std::runtime_error(
+                  fmt::format("Connection error: {}", e.message())
+                );
+            });
+
+        const auto msg = proto::unpack_have_msg(*body).map_error([](auto&& e) {
+            throw std::runtime_error(fmt::format(
+              "Unexpected answer from peer: {}", magic_enum::enum_name(e)
+            ));
+        });
+
+        _have_piece_idx = msg->index;
     }
     else if (response->id != proto::MsgId::Unchoke) {
         throw std::runtime_error(fmt::format(

@@ -4,6 +4,8 @@
 #include <vector>
 
 #include "torrent.hpp"
+#include "client/download_file.hpp"  // IWYU pragma: export
+
 
 namespace torrent::client {
 
@@ -24,15 +26,6 @@ auto download_piece(
   std::string peer_ip,
   std::string peer_port,
   std::size_t piece_idx,
-  std::basic_ostream<char>& ostream
-) -> void;
-
-/**
- * @brief Download full file
- */
-auto download_file(
-  const Metainfo& meta,
-  const std::vector<std::string> peers,
   std::basic_ostream<char>& ostream
 ) -> void;
 

@@ -57,6 +57,17 @@ auto download_file_command(
 ) -> ExitCode;
 
 
+#include <range/v3/view.hpp>
+
+// int main() {
+//     std::vector indexes = {0, 1, 2};
+//     std::vector<std::size_t> available_workers;
+
+//     for (auto&& [i, w] : ranges::views::zip(indexes, available_workers)) {
+//         spdlog::info("{} {}", i, w);
+//     }
+// }
+
 int main(int argc, char* argv[])
 {
 #ifndef NDEBUG

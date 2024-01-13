@@ -2,7 +2,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <memory>
 #include <ostream>
 #include <stdexcept>
 #include <string>
@@ -21,7 +20,6 @@
 #include "bencode/types.hpp"
 #include "client/piece.hpp"
 #include "misc/curl.hpp"
-#include "misc/parse_ip_port.hpp"
 #include "misc/sha1.hpp"
 #include "misc/url.hpp"
 #include "proto/proto.hpp"
@@ -125,78 +123,6 @@ auto download_piece(
     if (not worker.wait_piece_transfer()) {
         worker.raise();
     }
-}
-
-auto download_file(
-  const Metainfo& meta,
-  const std::vector<std::string> peers,
-  std::basic_ostream<char>& ostream
-) -> void
-{
-    using namespace torrent;
-    using namespace asio::ip;
-    using namespace std::chrono_literals;
-
-    auto bytes_received = 0;
-    const auto pieces_count = meta.pieces().size();
-    const auto peers_count = peers.size();
-
-    std::vector<std::unique_ptr<client::PieceWorker>> workers;
-
-    for (auto i_peer = 0; i_peer < peers_count; i_peer++) {
-        auto [peer_ip, peer_port] = utils::parse_ip_port(peers[i_peer]);
-
-        auto worker = std::make_unique<client::PieceWorker>(
-          meta, peer_ip, std::stoull(peer_port)
-        );
-
-        worker->check_connection_async();
-        if (worker->wait_connection_established()) {
-            workers.push_back(std::move(worker));
-            spdlog::debug(
-              "Set worker {} to communicate with peer {}", i_peer, peers[i_peer]
-            );
-        }
-    }
-
-    if (workers.size() < 1) {
-        throw std::runtime_error("No peers available!");
-    }
-
-    size_t pieces_count_requested = 0;
-    size_t pieces_count_awaiting = 0;
-
-    while (pieces_count_requested != pieces_count) {
-        for (auto i_worker = 0; i_worker < workers.size(); i_worker++) {
-            if (pieces_count_requested == pieces_count) {
-                break;
-            }
-
-            workers[i_worker]->download_piece_async(pieces_count_requested);
-            spdlog::info("Start piece {} downloading", pieces_count_requested);
-            pieces_count_requested += 1;
-            pieces_count_awaiting += 1;
-        }
-
-        for (auto i = 0; i < pieces_count_awaiting; i += 1) {
-            auto& w = workers[i];
-
-            if (not w->wait_piece_transfer()) {
-                w->raise();
-            }
-
-            bytes_received += w->piece().size();
-            ostream.write(w->piece().data(), w->piece().size());
-            spdlog::debug("Pieces received: {} bytes", w->piece().size());
-            spdlog::info(
-              "Piece {}/{} received", pieces_count_requested, pieces_count
-            );
-        }
-
-        pieces_count_awaiting = 0;
-    }
-
-    spdlog::debug("Overall bytes received {}/{}", bytes_received, meta.length);
 }
 
 auto decode_peers(bencode::Json::binary_t& peers) -> std::vector<std::string>

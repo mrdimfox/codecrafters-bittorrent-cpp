@@ -1,5 +1,5 @@
 #pragma once
 
-#include "proto/deserialize.hpp"
-#include "proto/serialize.hpp"
-#include "proto/types.hpp"
+#include "proto/deserialize.hpp"  // IWYU pragma: export
+#include "proto/serialize.hpp"  // IWYU pragma: export
+#include "proto/types.hpp"  // IWYU pragma: export

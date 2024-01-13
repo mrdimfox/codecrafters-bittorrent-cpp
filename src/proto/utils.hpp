@@ -25,7 +25,7 @@ inline auto pack_u32(uint32_t value) -> std::vector<uint8_t>
     return packed;
 }
 
-inline auto unpack_u32(std::span<uint8_t> msg) -> uint32_t
+inline auto unpack_u32(std::span<const uint8_t> msg) -> uint32_t
 {
     return (uint32_t)msg[0] << 24 | ((uint32_t)msg[1] << 16) |
            ((uint32_t)msg[2] << 8) | ((uint32_t)msg[3]);

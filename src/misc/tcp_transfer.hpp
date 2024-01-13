@@ -30,11 +30,15 @@ namespace net::tcp {
 class TcpTransfer
 {
  public:
-    inline TcpTransfer(asio::io_context& io, asio::ip::tcp::socket& socket) :
+    inline TcpTransfer(
+      asio::io_context& io,
+      asio::ip::tcp::socket& socket,
+      std::chrono::seconds read_timeout
+    ) :
       _io(io),
       _socket(socket),
-      _read_timeout(std::chrono::seconds(5)),
-      _write_timeout(std::chrono::seconds(1)),
+      _read_timeout(read_timeout),
+      _write_timeout(std::chrono::seconds(2)),
       _read_timeout_timer(_io, _read_timeout),
       _write_timeout_timer(_io, _write_timeout)
     {
@@ -261,20 +265,23 @@ inline auto exchange(
   asio::io_context& io,
   asio::ip::tcp::socket& socket,
   std::span<uint8_t> request,
-  size_t expected_response_length
+  size_t expected_response_length,
+  std::chrono::seconds read_timeout = std::chrono::seconds(10)
 )
 {
-    return TcpTransfer(io, socket)
+    return TcpTransfer(io, socket, read_timeout)
       .do_transfer(request, expected_response_length);
 }
 
 inline auto read(
   asio::io_context& io,
   asio::ip::tcp::socket& socket,
-  size_t expected_response_length
+  size_t expected_response_length,
+  std::chrono::seconds read_timeout = std::chrono::seconds(10)
 )
 {
-    return TcpTransfer(io, socket).do_read(expected_response_length);
+    return TcpTransfer(io, socket, read_timeout)
+      .do_read(expected_response_length);
 }
 
 }  // namespace net::tcp

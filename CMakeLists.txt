@@ -15,6 +15,8 @@ add_executable(
     "src/torrent.hpp"
     "src/client/client.hpp"
     "src/client/client.cpp"
+    "src/client/download_file.hpp"
+    "src/client/download_file.cpp"
     "src/client/piece.cpp"
     "src/client/piece.cpp"
     "src/bencode/decoders.cpp"
@@ -55,7 +57,9 @@ find_package(CURL REQUIRED)
 
 add_library(asio INTERFACE)
 target_include_directories(asio INTERFACE src/lib/asio-1.28.0/include)
-target_compile_definitions(asio INTERFACE ASIO_STANDALONE ASIO_NO_DEPRECATED)
+target_compile_definitions(
+    asio INTERFACE ASIO_STANDALONE ASIO_NO_DEPRECATED ASIO_HAS_MOVE
+)
 target_link_options(asio INTERFACE -pthread)
 
 # Target

@@ -134,6 +134,7 @@ class PieceWorker
     void _do_handshake();
     void _do_bitfield_or_unchoke();
     void _do_interested();
+    void _try_have();
 
     void _check_piece_hash(
       const size_t& piece_idx,
@@ -158,9 +159,11 @@ class PieceWorker
     std::basic_ostream<char>& _ostream;
     asio::streambuf _buffer;
 
+    bool _skip_have = false;
     bool is_piece_transfer_complete = false;
     bool is_peer_connection_established = false;
     size_t _last_piece_idx = 0;
+    std::optional<size_t> _have_piece_idx;
 };
 
 }  // namespace torrent::client
