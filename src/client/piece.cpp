@@ -1,6 +1,5 @@
 #include "piece.hpp"
 
-#include <chrono>
 #include <cstddef>
 #include <optional>
 #include <spdlog/spdlog.h>
@@ -23,9 +22,15 @@ auto PieceWorker::_download_piece(size_t piece_idx) -> void
     using namespace ::torrent;
 
     _buffer.consume(_buffer.size());  // clear buffer
-    _progress.store(0);
 
     if (_have_piece_idx) {
+        piece_idx = _have_piece_idx.value();
+        _have_piece_idx = std::nullopt;
+    }
+    else if (this->have_mode()) {
+        if (not _wait_have()) {
+            return;
+        }
         piece_idx = _have_piece_idx.value();
         _have_piece_idx = std::nullopt;
     }
@@ -119,10 +124,10 @@ auto PieceWorker::_download_piece(size_t piece_idx) -> void
 
         received_bytes += piece_msg->block.size();
 
-        _progress.fetch_add((size_t(double(received_bytes) / piece_len) * 100));
         _progress_callback(piece_idx, received_bytes, piece_len);
     }
 
+    _progress_callback(piece_idx, received_bytes, piece_len);
     spdlog::debug("Count of bytes received: {0}", received_bytes);
 
     if (received_bytes != piece_len) {
@@ -132,9 +137,7 @@ auto PieceWorker::_download_piece(size_t piece_idx) -> void
     _ostream.flush();
 
     _last_piece_idx = piece_idx;
-    if (not _skip_have) {
-        _try_have();
-    }
+    _have_piece_idx = std::nullopt;
 }
 
 void PieceWorker::_connect_to_peer()
@@ -263,12 +266,14 @@ auto PieceWorker::_do_interested() -> void
         });
 
         _have_piece_idx = msg->index;
+        _have_mode = true;
     }
     else if (response->id != proto::MsgId::Unchoke) {
         throw std::runtime_error(fmt::format(
           "Peer not ready to transmit data: peer answer {}",
           magic_enum::enum_name(response->id)
         ));
+        _have_mode = false;
     }
 }
 
@@ -278,17 +283,21 @@ void PieceWorker::_try_have()
 
     spdlog::debug("TRY HAVE {} ->", _last_piece_idx);
 
-    auto interested_msg = proto::pack_have_msg(_last_piece_idx);
+    auto have_msg = proto::pack_have_msg(_last_piece_idx);
 
     auto result =  //
       net::tcp::exchange(
-        io, socket, interested_msg, proto::MsgHeader::SIZE_IN_BYTES, 1s
+        io, socket, have_msg, proto::MsgHeader::SIZE_IN_BYTES, 3s
       );
 
     if (not result and result.error() == asio::error::operation_aborted) {
         spdlog::debug("NO HAVE");
-        _skip_have = true;
         return;
+    }
+    else if (not result) {
+        throw std::runtime_error(
+          fmt::format("Connection error: {}", result.error().message())
+        );
     }
 
     auto response = proto::unpack_msg_header(*result).map_error([](auto&& e) {
@@ -322,6 +331,61 @@ void PieceWorker::_try_have()
           magic_enum::enum_name(response->id)
         ));
     }
+}
+
+auto PieceWorker::_wait_have() -> bool
+{
+    using namespace std::chrono_literals;
+
+    spdlog::debug("WAIT HAVE");
+
+    auto result =
+      net::tcp::read(io, socket, proto::MsgHeader::SIZE_IN_BYTES, 20s);
+
+    if (not result and result.error() == asio::error::operation_aborted) {
+        spdlog::debug("NO HAVE");
+        return false;
+    }
+    else if (not result) {
+        throw std::runtime_error(
+          fmt::format("Connection error: {}", result.error().message())
+        );
+    }
+
+    auto response = proto::unpack_msg_header(*result).map_error([](auto&& e) {
+        throw std::runtime_error(fmt::format(
+          "Unexpected answer from peer: {}", magic_enum::enum_name(e)
+        ));
+    });
+
+    spdlog::debug("Read: {}", magic_enum::enum_name(response->id));
+
+    if (response->id == proto::MsgId::Have) {
+        const auto body =
+          net::tcp::read(io, socket, response->body_length)
+            .map_error([](auto&& e) {
+                throw std::runtime_error(
+                  fmt::format("Connection error: {}", e.message())
+                );
+            });
+
+        const auto msg = proto::unpack_have_msg(*body).map_error([](auto&& e) {
+            throw std::runtime_error(fmt::format(
+              "Unexpected answer from peer: {}", magic_enum::enum_name(e)
+            ));
+        });
+
+        _have_piece_idx = msg->index;
+        return true;
+    }
+    else if (response->id != proto::MsgId::Unchoke) {
+        throw std::runtime_error(fmt::format(
+          "Peer not ready to transmit data: peer answer {}",
+          magic_enum::enum_name(response->id)
+        ));
+    }
+
+    return false;
 }
 
 void PieceWorker::_check_piece_hash(

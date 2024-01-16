@@ -46,6 +46,7 @@ CTestTestfile.cmake
 _deps
 .DS_Store
 build/
+build_debug/
 
 .tmp/
 
@@ -59,3 +60,5 @@ debian/debhelper-build-stamp
 debian/files
 
 !/Makefile
+
+.pieces

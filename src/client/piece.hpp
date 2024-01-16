@@ -141,9 +141,9 @@ class PieceWorker
 
     inline std::size_t last_piece_idx() const { return _last_piece_idx; }
 
-    inline auto progress() -> std::optional<std::size_t>
+    inline auto have_mode() -> bool
     {
-        return _progress.load();
+        return _have_mode;
     }
 
  private:
@@ -154,6 +154,7 @@ class PieceWorker
     void _do_bitfield_or_unchoke();
     void _do_interested();
     void _try_have();
+    bool _wait_have();
 
     void _check_piece_hash(
       const size_t& piece_idx,
@@ -178,12 +179,11 @@ class PieceWorker
     std::basic_ostream<char>& _ostream;
     asio::streambuf _buffer;
 
-    bool _skip_have = false;
+    bool _have_mode = false;
     bool is_piece_transfer_complete = false;
     bool is_peer_connection_established = false;
     size_t _last_piece_idx = 0;
     std::optional<size_t> _have_piece_idx;
-    std::atomic_size_t _progress;
 
     ProgressCb _progress_callback;
 };

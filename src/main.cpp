@@ -62,9 +62,9 @@ int main(int argc, char* argv[])
 {
     auto internal_logger = spdlog::stdout_color_mt("internal_logger");
 
-#ifndef NDEBUG
-    spdlog::set_level(spdlog::level::off);
-    internal_logger->set_level(spdlog::level::err);
+#ifdef NDEBUG
+    spdlog::set_level(spdlog::level::err);
+    internal_logger->set_level(spdlog::level::off);
 #else
     spdlog::set_level(spdlog::level::err);
     internal_logger->set_level(spdlog::level::off);

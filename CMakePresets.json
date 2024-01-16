@@ -7,11 +7,11 @@
     },
     "configurePresets": [
         {
-            "name": "with_tests",
-            "displayName": "Build With Tests",
-            "description": "Build With Tests",
+            "name": "debug",
+            "displayName": "Build Debug With Tests",
+            "description": "Build Debug With Tests",
             "generator": "Ninja",
-            "binaryDir": "${sourceDir}/build",
+            "binaryDir": "${sourceDir}/build_debug",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
                 "ENABLE_TESTS": {
@@ -22,10 +22,10 @@
         },
         {
             "name": "default",
-            "displayName": "Build Without Tests",
-            "description": "Build Without Tests",
+            "displayName": "Build Release",
+            "description": "Build Release",
             "generator": "Ninja",
-            "binaryDir": "${sourceDir}/build_release",
+            "binaryDir": "${sourceDir}/build",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
                 "ENABLE_TESTS": {
@@ -37,10 +37,10 @@
     ],
     "buildPresets": [
         {
-            "name": "with_tests",
+            "name": "debug",
             "description": "",
             "displayName": "",
-            "configurePreset": "with_tests"
+            "configurePreset": "debug"
         },
         {
             "name": "default",

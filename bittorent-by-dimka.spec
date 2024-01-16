@@ -1,25 +1,26 @@
 Name:           bittorent-by-dimka
-Version:        0.0.1
+Version:        0
 Release:        0
 Summary:        Bittorent your files
 License:        GPL-2.0
-URL:            https://dlisin.dev
-BuildRequires:  libcurl-devel, cmake, ninja
-Requires:       libcurl
+URL:            https://github.com/mrdimfox/codecrafters-bittorrent-cpp.git
+Source:         %{name}-%{version}.tar.gz
+BuildRequires:  libcurl-devel, cmake, ninja, gcc-c++
 
 %description
 Dimka's Bittorent client
 
 %prep
+%setup
 
 %build
 make
 
 %install
-install -D %{buildroot}/bin/bittorent %{bindir}/bittorent
+install -D %{_builddir}/%{name}-%{version}/build/bittorrent %{buildroot}/usr/bin/bittorrent
 
 %files
-%{bindir}/bittorent
+/usr/bin/bittorrent
 
 %debug_package
 

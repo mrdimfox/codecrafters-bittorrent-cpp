@@ -89,6 +89,11 @@
         "vecbuf"
     ],
     "cmake.useCMakePresets": "always",
-    "iwyu.compile_commands": "${workspaceFolder}/build/compile_commands.json",
+    "iwyu.compile_commands": "${workspaceFolder}/build_debug/compile_commands.json",
+    "clangd.arguments": [
+        "--compile-commands-dir=${workspaceFolder}/build_debug",
+        "--completion-style=detailed",
+        "--header-insertion=never"
+    ],
     "iwyu.diagnostics.full_line_squiggles": true,
 }

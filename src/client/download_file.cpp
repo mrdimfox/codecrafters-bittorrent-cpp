@@ -37,8 +37,8 @@ namespace ind = indicators;
 
 using Workers = std::vector<std::unique_ptr<client::PieceWorker>>;
 using Indexes = std::list<std::size_t>;
-using DynamicProgressBarShared =
-  std::shared_ptr<ind::DynamicProgress<ind::ProgressBar>>;
+using MultiprogressBar = ind::DynamicProgress<ind::ProgressBar>;
+using MultiprogressBarShared = std::shared_ptr<MultiprogressBar>;
 using ProgressBarsShared = std::vector<std::shared_ptr<ind::ProgressBar>>;
 
 
@@ -84,15 +84,12 @@ auto set_progress(
   std::string prefix
 )
 {
-    const auto msg = fmt::format("{} {}/{}", prefix, current, max);
-
 #ifdef NDEBUG
+    const auto msg = fmt::format("{} {}/{}", prefix, current, max);
     bar.set_option(indicators::option::PostfixText{msg});
 
     const auto progress = long((double(current) / max) * 100.0);
     bar.set_progress(progress);
-#else
-    fmt::println("{}", msg);
 #endif
 }
 
@@ -139,7 +136,7 @@ void setup_workers(
   const std::vector<std::string>& peers,
   const Metainfo& meta,
   OUT Workers& workers,
-  OUT DynamicProgressBarShared per_pieces_progress_bar,
+  OUT std::shared_ptr<MultiprogressBar> per_pieces_progress_bar,
   OUT ProgressBarsShared& bars
 )
 {
@@ -275,16 +272,20 @@ auto download_file(
     const std::size_t pieces_count = meta.pieces().size();
     const auto peers_count = peers.size();
 
-    std::list<std::size_t> pieces_to_download = shuffled_indexes(pieces_count);
+    Indexes pieces_to_download = shuffled_indexes(pieces_count);
 
     Workers workers;
 
-    DynamicProgressBarShared per_pieces_progress_bar =
-      std::make_shared<ind::DynamicProgress<ind::ProgressBar>>();
-
+    auto per_pieces_progress_bar = std::make_shared<MultiprogressBar>();
+#ifdef NDEBUG
     per_pieces_progress_bar->set_option(  //
       ind::option::HideBarWhenComplete{false}
     );
+#else
+    per_pieces_progress_bar->set_option(  //
+      ind::option::HideBarWhenComplete{true}
+    );
+#endif
 
     ProgressBarsShared bars;
 
@@ -319,23 +320,27 @@ auto download_file(
 
         for (auto&& w : started_workers) {
             if (not w->wait_piece_transfer()) {
-                w->raise();
+                if (not w->have_mode()) {
+                    w->raise();
+                }
+                else {
+                    continue;
+                }
             }
+
+            pieces_count_requested += 1;
+            set_progress(
+              (*per_pieces_progress_bar)[bars.size()],
+              pieces_count_requested + 1, pieces_count, "Pieces received"
+            );
 
             const std::size_t piece_idx = w->last_piece_idx();
             pop_piece(pieces_to_download, piece_idx);
             write_piece(pieces_files_path, w->piece(), piece_idx);
             bytes_received += w->piece().size();
 
-            pieces_count_requested += 1;
-
             spdlog::debug(
               "Piece {} received: {} bytes", piece_idx, w->piece().size()
-            );
-
-            set_progress(
-              (*per_pieces_progress_bar)[bars.size()],
-              pieces_count_requested + 1, pieces_count, "Pieces received"
             );
         }
     }
